@@ -1,0 +1,6 @@
+# Private deployment configuration and credentials
+deployment.env
+*.local.env
+
+# Local OpenShift credentials
+kube_config
