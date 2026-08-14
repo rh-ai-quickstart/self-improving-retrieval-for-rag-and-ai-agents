@@ -7,8 +7,7 @@ deployment_env := env_var_or_default("DEPLOYMENT_ENV", "deployment.env")
 default:
     @just --list
 
-# Start the bootstrap workflow. Phase 2 remains separate because ZenML must be
-# activated and the local CLI must be authenticated before stack registration.
+# Start phase 1. Activate the server and authenticate the CLI before phase 2.
 bootstrap: bootstrap-server
 
 # Phase 1: provision persistent MySQL, ZenML OSS, and the OpenShift Route.
@@ -24,10 +23,23 @@ bootstrap-server:
     @echo
     @echo "==> Server bootstrap complete"
     @echo "    Complete browser activation and run 'zenml login <route-url>'."
-    @echo "    Then run 'just bootstrap-stack' once the stack bootstrap is added."
+    @echo "    Then run 'just bootstrap-stack'."
 
-# Validate phase 1 without modifying any OpenShift resources.
-validate: validate-server
+# Phase 2: provision and register the remote workload stack.
+bootstrap-stack:
+    @echo "==> Bootstrapping the ZenML remote workload stack"
+    @echo "    Configuration: {{deployment_env}}"
+    @if [[ ! -f "{{deployment_env}}" ]]; then \
+        echo "ERROR: Configuration file not found: {{deployment_env}}" >&2; \
+        echo "Create it with: cp deployment.env.example deployment.env" >&2; \
+        exit 1; \
+    fi
+    ./scripts/bootstrap_zenml_stack_on_os.sh "{{deployment_env}}"
+
+# Validate both phases without modifying OpenShift or ZenML resources.
+validate:
+    @just validate-server
+    @just validate-stack
 
 # Check Helm, workloads, storage, Services, Route, and HTTP health.
 validate-server:
@@ -40,9 +52,31 @@ validate-server:
     fi
     ./scripts/validate_zenml_on_os.sh "{{deployment_env}}"
 
-# Tear down the complete quickstart. This currently aliases phase 1; when the
-# stack bootstrap lands, delete-stack can run before delete-server.
-delete: delete-server
+# Check workload resources, registry access, Docker, and ZenML registrations.
+validate-stack:
+    @echo "==> Validating the ZenML remote workload stack"
+    @echo "    Configuration: {{deployment_env}}"
+    @if [[ ! -f "{{deployment_env}}" ]]; then \
+        echo "ERROR: Configuration file not found: {{deployment_env}}" >&2; \
+        echo "Create it with: cp deployment.env.example deployment.env" >&2; \
+        exit 1; \
+    fi
+    ./scripts/validate_zenml_stack_on_os.sh "{{deployment_env}}"
+
+# Remove phase 2 before phase 1 so its ZenML registrations remain reachable.
+delete:
+    @just delete-stack
+    @just delete-server
+
+# Remove ZenML stack registrations and the dedicated workload project.
+delete-stack:
+    @echo "==> Tearing down the ZenML remote workload stack"
+    @echo "    Configuration: {{deployment_env}}"
+    @if [[ ! -f "{{deployment_env}}" ]]; then \
+        echo "ERROR: Configuration file not found: {{deployment_env}}" >&2; \
+        exit 1; \
+    fi
+    ./scripts/delete_zenml_stack_on_os.sh "{{deployment_env}}"
 
 # Remove the ZenML server, Route, persistent MySQL database, and PVCs.
 delete-server:
