@@ -1,0 +1,30 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: zenml-mlflow
+parameters:
+  - name: MLFLOW_INSTANCE
+    required: true
+  - name: MLFLOW_STORAGE_CLASS
+    required: true
+  - name: MLFLOW_STORAGE_SIZE
+    required: true
+objects:
+  - apiVersion: mlflow.opendatahub.io/v1
+    kind: MLflow
+    metadata:
+      name: ${MLFLOW_INSTANCE}
+      labels:
+        app.kubernetes.io/part-of: zenml-stack-bootstrap
+    spec:
+      replicas: 1
+      backendStoreUri: sqlite:////mlflow/mlflow.db
+      artifactsDestination: file:///mlflow/artifacts
+      serveArtifacts: true
+      storage:
+        storageClassName: ${MLFLOW_STORAGE_CLASS}
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: ${MLFLOW_STORAGE_SIZE}
