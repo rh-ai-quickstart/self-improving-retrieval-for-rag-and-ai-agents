@@ -63,6 +63,34 @@ validate-stack:
     fi
     ./scripts/validate_zenml_stack_on_os.sh "{{deployment_env}}"
 
+# Refresh the existing stack's Kubernetes, registry, and MLflow credentials.
+refresh-stack-credentials:
+    @echo "==> Refreshing ZenML remote stack credentials"
+    @echo "    Configuration: {{deployment_env}}"
+    @if [[ ! -f "{{deployment_env}}" ]]; then \
+        echo "ERROR: Configuration file not found: {{deployment_env}}" >&2; \
+        exit 1; \
+    fi
+    ./scripts/refresh_zenml_stack_credentials_on_os.sh "{{deployment_env}}"
+
+# Refresh credentials, then submit the retrieval model evaluation pipeline.
+run-pipeline: refresh-stack-credentials
+    @if [[ ! -f "{{deployment_env}}" ]]; then \
+        echo "ERROR: Configuration file not found: {{deployment_env}}" >&2; \
+        exit 1; \
+    fi
+    set -a; source "{{deployment_env}}"; set +a; python run_retrieval_pipeline.py
+
+# Check that the selected KServe model is ready and returns an embedding.
+validate-model:
+    @echo "==> Validating the deployed retrieval model"
+    @echo "    Configuration: {{deployment_env}}"
+    @if [[ ! -f "{{deployment_env}}" ]]; then \
+        echo "ERROR: Configuration file not found: {{deployment_env}}" >&2; \
+        exit 1; \
+    fi
+    ./scripts/validate_retrieval_model_on_os.sh "{{deployment_env}}"
+
 # Remove phase 2 before phase 1 so its ZenML registrations remain reachable.
 delete:
     @just delete-stack

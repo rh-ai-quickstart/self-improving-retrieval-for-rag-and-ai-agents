@@ -4,3 +4,15 @@ deployment.env
 
 # Local OpenShift credentials
 kube_config
+
+# Local Python environments and generated artifacts
+/env/
+/.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+mlruns/
+.zen/
+.DS_Store

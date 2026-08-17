@@ -75,7 +75,13 @@ info "The environment file is trusted input and is loaded as shell configuration
 source "${CONFIG_FILE}"
 
 ZENML_NAMESPACE="${ZENML_NAMESPACE:-zenml}"
-ZENML_VERSION="${ZENML_VERSION:-0.96.2}"
+ZENML_PYTHON="${ZENML_PYTHON:-python}"
+ZENML_VERSION="${ZENML_VERSION:-}"
+if [[ -z "${ZENML_VERSION}" ]]; then
+    require_command "${ZENML_PYTHON}"
+    ZENML_VERSION="$("${ZENML_PYTHON}" -c 'import zenml; print(zenml.__version__)')" \
+        || die "Could not derive ZENML_VERSION from ${ZENML_PYTHON}."
+fi
 ZENML_RELEASE="${ZENML_RELEASE:-zenml-server}"
 ZENML_SERVICE="${ZENML_SERVICE:-zenml-server}"
 ZENML_ROUTE="${ZENML_ROUTE:-zenml-server}"

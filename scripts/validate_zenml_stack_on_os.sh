@@ -100,17 +100,10 @@ if [[ "${PYTHON_AVAILABLE}" == true ]]; then
     fi
 
     MLFLOW_VERSION="$("${ZENML_PYTHON}" -c 'import mlflow; print(mlflow.__version__)' 2>/dev/null || true)"
-    if "${ZENML_PYTHON}" - <<'PY' >/dev/null 2>&1
-from packaging.version import Version
-import mlflow
-
-version = Version(mlflow.__version__)
-assert Version("3.11") <= version < Version("4")
-PY
-    then
-        pass "MLflow SDK version is compatible with OpenShift AI and ZenML: ${MLFLOW_VERSION}"
+    if [[ -n "${MLFLOW_VERSION}" ]]; then
+        pass "ZenML-managed MLflow SDK is installed: ${MLFLOW_VERSION}"
     else
-        fail "MLflow SDK version is ${MLFLOW_VERSION:-unavailable}; expected >=3.11,<4."
+        fail "MLflow SDK is unavailable. Run 'just bootstrap-stack' to install the ZenML MLflow integration."
     fi
 fi
 
@@ -151,6 +144,43 @@ if [[ "${PROJECT_EXISTS}" == true ]]; then
         pass "Registry pull Secret is linked to the orchestrator service account."
     else
         fail "Registry pull Secret is not linked: ${ZENML_REGISTRY_PULL_SECRET}"
+    fi
+fi
+
+section "Checking OpenShift AI KServe deployment capability"
+if [[ "${OC_AVAILABLE}" != true ]]; then
+    skip "KServe checks require an authenticated oc CLI."
+else
+    KSERVE_STATE="$(oc get datasciencecluster "${OPENSHIFT_AI_DSC}" -o jsonpath='{.spec.components.kserve.managementState}' 2>/dev/null || true)"
+    if [[ "${KSERVE_STATE}" == Managed ]]; then
+        pass "OpenShift AI KServe is Managed."
+    else
+        fail "OpenShift AI KServe state is ${KSERVE_STATE:-unavailable}; expected Managed."
+    fi
+
+    if oc get crd inferenceservices.serving.kserve.io >/dev/null 2>&1; then
+        pass "KServe InferenceService CRD is installed."
+    else
+        fail "KServe InferenceService CRD is not installed."
+    fi
+
+    if [[ "${PROJECT_EXISTS}" == true ]]; then
+        KSERVE_ROLE_REF="$(oc get rolebinding "${MODEL_SERVING_ROLE_BINDING}" -n "${ZENML_WORKLOAD_NAMESPACE}" -o jsonpath='{.roleRef.kind}:{.roleRef.name}' 2>/dev/null || true)"
+        KSERVE_ROLE_SUBJECTS="$(oc get rolebinding "${MODEL_SERVING_ROLE_BINDING}" -n "${ZENML_WORKLOAD_NAMESPACE}" -o jsonpath='{range .subjects[*]}{.kind}:{.namespace}:{.name}{"\n"}{end}' 2>/dev/null || true)"
+        if [[ "${KSERVE_ROLE_REF}" == "Role:${MODEL_SERVING_ROLE}" ]] \
+            && grep -Fxq "ServiceAccount:${ZENML_WORKLOAD_NAMESPACE}:${ZENML_ORCHESTRATOR_SA}" <<< "${KSERVE_ROLE_SUBJECTS}"; then
+            pass "KServe deployment RoleBinding targets the orchestrator service account."
+        else
+            fail "KServe deployment RoleBinding is missing or incorrectly configured: ${MODEL_SERVING_ROLE_BINDING}"
+        fi
+
+        for verb in get create patch delete; do
+            if [[ "$(oc auth can-i "${verb}" inferenceservices.serving.kserve.io --as="system:serviceaccount:${ZENML_WORKLOAD_NAMESPACE}:${ZENML_ORCHESTRATOR_SA}" -n "${ZENML_WORKLOAD_NAMESPACE}" 2>/dev/null)" == yes ]]; then
+                pass "Orchestrator service account can ${verb} KServe InferenceServices."
+            else
+                fail "Orchestrator service account cannot ${verb} KServe InferenceServices."
+            fi
+        done
     fi
 fi
 

@@ -1,0 +1,21 @@
+# Local credentials and environment configuration
+deployment.env
+*.local.env
+kube_config
+
+# Repository and agent metadata
+.git
+.agent-ctx
+.serena
+
+# Local Python environments and generated artifacts
+env
+.venv
+__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.ruff_cache
+mlruns
+.zen
+.DS_Store

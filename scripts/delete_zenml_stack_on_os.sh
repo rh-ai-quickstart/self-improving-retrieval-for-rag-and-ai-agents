@@ -56,6 +56,7 @@ echo "      secret/${ZENML_ARTIFACT_SECRET}"
 echo
 echo "    Dedicated OpenShift project and everything inside it:"
 echo "      project/${ZENML_WORKLOAD_NAMESPACE}"
+echo "      inferenceservice/${MODEL_SERVING_NAME}"
 echo
 echo "    Retained shared cluster resources:"
 echo "      route/${OPENSHIFT_REGISTRY_NAMESPACE}/${OPENSHIFT_REGISTRY_ROUTE}"
@@ -66,7 +67,7 @@ echo "    The ZenML server project is not touched by this command."
 if oc get project "${ZENML_WORKLOAD_NAMESPACE}" >/dev/null 2>&1; then
     echo
     echo "Current workload resources:"
-    oc get deployment,pod,service,pvc,route,job,imagestream \
+    oc get deployment,pod,service,pvc,route,job,imagestream,inferenceservice \
         -n "${ZENML_WORKLOAD_NAMESPACE}" \
         --ignore-not-found 2>/dev/null || true
 else

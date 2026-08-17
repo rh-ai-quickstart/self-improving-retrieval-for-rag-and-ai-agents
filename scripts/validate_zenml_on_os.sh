@@ -58,7 +58,17 @@ info "Environment file: ${CONFIG_FILE}"
 source "${CONFIG_FILE}"
 
 ZENML_NAMESPACE="${ZENML_NAMESPACE:-zenml}"
-ZENML_VERSION="${ZENML_VERSION:-0.96.2}"
+ZENML_PYTHON="${ZENML_PYTHON:-python}"
+ZENML_VERSION="${ZENML_VERSION:-}"
+if [[ -z "${ZENML_VERSION}" ]]; then
+    if command -v "${ZENML_PYTHON}" >/dev/null 2>&1; then
+        ZENML_VERSION="$("${ZENML_PYTHON}" -c 'import zenml; print(zenml.__version__)' 2>/dev/null || true)"
+    fi
+    if [[ -z "${ZENML_VERSION}" ]]; then
+        echo "ERROR: ZENML_VERSION is empty and could not be derived from ${ZENML_PYTHON}." >&2
+        exit 1
+    fi
+fi
 ZENML_RELEASE="${ZENML_RELEASE:-zenml-server}"
 ZENML_SERVICE="${ZENML_SERVICE:-zenml-server}"
 ZENML_ROUTE="${ZENML_ROUTE:-zenml-server}"

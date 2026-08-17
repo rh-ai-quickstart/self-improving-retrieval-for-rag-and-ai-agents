@@ -74,13 +74,20 @@ load_stack_config() {
     # shellcheck disable=SC1090
     source "${config_file}"
 
-    ZENML_VERSION="${ZENML_VERSION:-0.96.2}"
+    ZENML_PYTHON="${ZENML_PYTHON:-python}"
+    ZENML_VERSION="${ZENML_VERSION:-}"
+    if [[ -z "${ZENML_VERSION}" ]]; then
+        require_command "${ZENML_PYTHON}"
+        ZENML_VERSION="$("${ZENML_PYTHON}" -c 'import zenml; print(zenml.__version__)')" \
+            || die "Could not derive ZENML_VERSION from ${ZENML_PYTHON}."
+    fi
     ZENML_WORKLOAD_NAMESPACE="${ZENML_WORKLOAD_NAMESPACE:-zenml-workloads}"
     ZENML_ORCHESTRATOR_SA="${ZENML_ORCHESTRATOR_SA:-zenml-orchestrator}"
     ZENML_REGISTRY_PULL_SECRET="${ZENML_REGISTRY_PULL_SECRET:-openshift-registry-route-pull}"
     ZENML_K8S_CONNECTOR="${ZENML_K8S_CONNECTOR:-openshift-k8s}"
     ZENML_K8S_CLUSTER_NAME="${ZENML_K8S_CLUSTER_NAME:-}"
     ZENML_K8S_TOKEN_DURATION="${ZENML_K8S_TOKEN_DURATION:-24h}"
+    ZENML_CREDENTIAL_EXPIRY_SKEW_SECONDS="${ZENML_CREDENTIAL_EXPIRY_SKEW_SECONDS:-300}"
     ZENML_ORCHESTRATOR="${ZENML_ORCHESTRATOR:-openshift-k8s}"
     ZENML_ARTIFACT_STORE="${ZENML_ARTIFACT_STORE:-openshift-minio}"
     ZENML_ARTIFACT_SECRET="${ZENML_ARTIFACT_SECRET:-minio-artifact-store}"
@@ -90,7 +97,6 @@ load_stack_config() {
     ZENML_MLFLOW_TOKEN_DURATION="${ZENML_MLFLOW_TOKEN_DURATION:-24h}"
     ZENML_STACK="${ZENML_STACK:-openshift}"
     ZENML_DELETE_FALLBACK_STACK="${ZENML_DELETE_FALLBACK_STACK:-default}"
-    ZENML_PYTHON="${ZENML_PYTHON:-python}"
 
     MINIO_IMAGE="${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z}"
     MINIO_CLIENT_IMAGE="${MINIO_CLIENT_IMAGE:-quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z}"
@@ -109,6 +115,10 @@ load_stack_config() {
     MLFLOW_STORAGE_SIZE="${MLFLOW_STORAGE_SIZE:-10Gi}"
     MLFLOW_INTEGRATION_CLUSTER_ROLE="${MLFLOW_INTEGRATION_CLUSTER_ROLE:-mlflow-operator-mlflow-integration}"
     MLFLOW_ROLE_BINDING="${MLFLOW_ROLE_BINDING:-zenml-mlflow-integration}"
+    MODEL_SERVING_NAME="${MODEL_SERVING_NAME:-retrieval-embedding}"
+    MODEL_SERVING_ROLE="${MODEL_SERVING_ROLE:-zenml-kserve-deployer}"
+    MODEL_SERVING_ROLE_BINDING="${MODEL_SERVING_ROLE_BINDING:-zenml-kserve-deployer}"
+    MODEL_SERVING_TIMEOUT="${MODEL_SERVING_TIMEOUT:-600}"
 
     OPENSHIFT_REGISTRY_NAMESPACE="${OPENSHIFT_REGISTRY_NAMESPACE:-openshift-image-registry}"
     OPENSHIFT_REGISTRY_ROUTE="${OPENSHIFT_REGISTRY_ROUTE:-default-route}"
@@ -126,6 +136,16 @@ load_stack_config() {
     validate_dns_name "OPENSHIFT_AI_APPLICATIONS_NAMESPACE" "${OPENSHIFT_AI_APPLICATIONS_NAMESPACE}"
     validate_dns_name "MLFLOW_INSTANCE" "${MLFLOW_INSTANCE}"
     validate_dns_name "MLFLOW_ROLE_BINDING" "${MLFLOW_ROLE_BINDING}"
+    validate_dns_name "MODEL_SERVING_NAME" "${MODEL_SERVING_NAME}"
+    validate_dns_name "MODEL_SERVING_ROLE" "${MODEL_SERVING_ROLE}"
+    validate_dns_name "MODEL_SERVING_ROLE_BINDING" "${MODEL_SERVING_ROLE_BINDING}"
+
+    if [[ ! "${MODEL_SERVING_TIMEOUT}" =~ ^[1-9][0-9]*$ ]]; then
+        die "MODEL_SERVING_TIMEOUT must be a positive number of seconds: ${MODEL_SERVING_TIMEOUT}"
+    fi
+    if [[ ! "${ZENML_CREDENTIAL_EXPIRY_SKEW_SECONDS}" =~ ^[0-9]+$ ]]; then
+        die "ZENML_CREDENTIAL_EXPIRY_SKEW_SECONDS must be a non-negative number of seconds: ${ZENML_CREDENTIAL_EXPIRY_SKEW_SECONDS}"
+    fi
 
     if [[ "${ZENML_WORKLOAD_NAMESPACE}" == "${ZENML_NAMESPACE:-zenml}" ]]; then
         die "ZENML_WORKLOAD_NAMESPACE must differ from the ZenML server project (${ZENML_NAMESPACE:-zenml})."
