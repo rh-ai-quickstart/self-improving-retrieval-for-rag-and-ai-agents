@@ -50,6 +50,7 @@ info "MinIO storage:       ${MINIO_STORAGE_CLASS}/${MINIO_STORAGE_SIZE}"
 info "MinIO bucket:        ${MINIO_BUCKET}"
 info "MLflow instance:     ${MLFLOW_INSTANCE}"
 info "Experiment tracker:  ${ZENML_EXPERIMENT_TRACKER}"
+info "KServe model:        ${MODEL_SERVING_NAME}"
 
 section "Checking local clients and authenticated services"
 require_command oc
@@ -66,17 +67,13 @@ docker info >/dev/null 2>&1 || die "The local Docker daemon is not reachable."
 
 CLIENT_VERSION="$("${ZENML_PYTHON}" -c 'import zenml; print(zenml.__version__)')"
 [[ "${CLIENT_VERSION}" == "${ZENML_VERSION}" ]] || die "ZenML Python client ${CLIENT_VERSION} does not match configured server version ${ZENML_VERSION}."
+
+info "Installing the required ZenML integration dependencies."
+zenml integration install s3 mlflow -y
+success "ZenML S3 and MLflow integration dependencies are installed."
+
 "${ZENML_PYTHON}" -c 'import docker; assert docker.from_env().ping()' >/dev/null \
     || die "The ZenML Python environment cannot reach Docker through the Docker SDK."
-"${ZENML_PYTHON}" - <<'PY' >/dev/null \
-    || die "The ZenML Python environment requires MLflow >=3.11,<4. Install it with: python -m pip install 'mlflow[kubernetes]>=3.11,<4'"
-from packaging.version import Version
-import mlflow
-
-version = Version(mlflow.__version__)
-assert Version("3.11") <= version < Version("4")
-PY
-
 OPENSHIFT_USER="$(oc whoami)"
 OPENSHIFT_SERVER="$(oc whoami --show-server)"
 success "Authenticated to OpenShift as ${OPENSHIFT_USER}"
@@ -118,6 +115,35 @@ oc adm policy add-role-to-user system:image-builder \
 [[ "$(oc auth can-i update imagestreams/layers --as="system:serviceaccount:${ZENML_WORKLOAD_NAMESPACE}:${ZENML_ORCHESTRATOR_SA}" -n "${ZENML_WORKLOAD_NAMESPACE}")" == "yes" ]] \
     || die "${ZENML_ORCHESTRATOR_SA} cannot push images in ${ZENML_WORKLOAD_NAMESPACE}."
 success "Orchestrator service account can create workloads and push project images."
+
+section "Enabling OpenShift AI KServe model deployment"
+KSERVE_STATE="$(oc get datasciencecluster "${OPENSHIFT_AI_DSC}" \
+    -o jsonpath='{.spec.components.kserve.managementState}' 2>/dev/null || true)"
+[[ "${KSERVE_STATE}" == "Managed" ]] \
+    || die "OpenShift AI KServe is ${KSERVE_STATE:-unavailable}; expected Managed on DataScienceCluster ${OPENSHIFT_AI_DSC}."
+oc get crd inferenceservices.serving.kserve.io >/dev/null 2>&1 \
+    || die "OpenShift AI KServe CRD inferenceservices.serving.kserve.io is not installed."
+
+oc create role "${MODEL_SERVING_ROLE}" \
+    --verb=get,list,watch,create,update,patch,delete \
+    --resource=inferenceservices.serving.kserve.io \
+    -n "${ZENML_WORKLOAD_NAMESPACE}" \
+    --dry-run=client \
+    -o yaml \
+    | oc apply -f - >/dev/null
+oc create rolebinding "${MODEL_SERVING_ROLE_BINDING}" \
+    --role="${MODEL_SERVING_ROLE}" \
+    --serviceaccount="${ZENML_WORKLOAD_NAMESPACE}:${ZENML_ORCHESTRATOR_SA}" \
+    -n "${ZENML_WORKLOAD_NAMESPACE}" \
+    --dry-run=client \
+    -o yaml \
+    | oc apply -f - >/dev/null
+
+[[ "$(oc auth can-i create inferenceservices.serving.kserve.io \
+    --as="system:serviceaccount:${ZENML_WORKLOAD_NAMESPACE}:${ZENML_ORCHESTRATOR_SA}" \
+    -n "${ZENML_WORKLOAD_NAMESPACE}")" == "yes" ]] \
+    || die "${ZENML_ORCHESTRATOR_SA} cannot create KServe InferenceServices in ${ZENML_WORKLOAD_NAMESPACE}."
+success "OpenShift AI KServe is managed and the orchestrator can deploy InferenceServices."
 
 section "Provisioning the shared OpenShift AI MLflow instance"
 MLFLOW_OPERATOR_STATE="$(oc get datasciencecluster "${OPENSHIFT_AI_DSC}" \
@@ -449,6 +475,7 @@ echo "    Artifact store:      ${ZENML_ARTIFACT_STORE}"
 echo "    Container registry:  ${ZENML_CONTAINER_REGISTRY}"
 echo "    Image builder:       ${ZENML_IMAGE_BUILDER}"
 echo "    Experiment tracker:  ${ZENML_EXPERIMENT_TRACKER}"
+echo "    KServe model:        ${MODEL_SERVING_NAME} (created by the pipeline)"
 echo
 echo "Next commands:"
 echo "    just validate-stack"
