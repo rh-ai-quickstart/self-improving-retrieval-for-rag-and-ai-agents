@@ -341,7 +341,6 @@ just delete-server
 │   └── server.py             # Embedding model HTTP server
 ├── openshift/                # Parameterized OpenShift resource templates
 ├── scripts/                  # Bootstrap, validation, refresh, and deletion scripts
-├── chart/                    # Unused quickstart-template Helm scaffolding
 ├── docs/images/              # Architecture diagrams and screenshots
 ├── deployment.env.example    # Deployment and stack configuration example
 ├── openshift-values.yaml     # Values for the official ZenML Helm chart
@@ -351,10 +350,9 @@ just delete-server
 └── README.md
 ```
 
-The local `chart/` directory comes from the quickstart template and is not used
-by this implementation. The ZenML server is installed from ZenML's published
-OCI Helm chart; the remaining OpenShift resources are rendered from
-`openshift/` and applied by the bootstrap scripts.
+The ZenML server is installed from ZenML's published OCI Helm chart; the
+remaining OpenShift resources are rendered from `openshift/` and applied by
+the bootstrap scripts.
 
 ## References
 
