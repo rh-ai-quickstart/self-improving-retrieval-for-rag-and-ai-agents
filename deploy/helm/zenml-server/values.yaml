@@ -1,3 +1,6 @@
+# Bootstrap installs this chart in two Helm passes: MySQL first
+# (zenml.enabled=false) so Service zenml-mysql exists, then ZenML
+# (zenml.enabled=true) so the pre-install db-migration Job can resolve DNS.
 zenml:
   enabled: true
   podSecurityContext:
@@ -24,6 +27,15 @@ zenml:
 mysql:
   enabled: true
   fullnameOverride: zenml-mysql
+  # Subchart 11.1.19 defaults to docker.io/bitnami/mysql:8.4.3-debian-12-r0.
+  # Docker Hub removed versioned bitnami/* tags; the same tag lives on
+  # bitnamilegacy (public, no pull secret). RHEL mysql-80 is not a drop-in
+  # replacement for this chart (entrypoint, data dir, probes, auth).
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/mysql
+    tag: 8.4.3-debian-12-r0
+    pullPolicy: IfNotPresent
   auth:
     database: zenml
     username: zenml

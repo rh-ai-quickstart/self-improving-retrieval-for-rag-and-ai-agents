@@ -4,8 +4,8 @@ Provisions the OpenShift workload infrastructure for the ZenML remote stack:
 
 - Orchestrator service account and RBAC
 - KServe deployment permissions
-- MinIO artifact store (PVC, Deployment, Service, Route, bootstrap Job)
 - Optional cluster-scoped MLflow CR and integration RoleBinding
+- MinIO artifact store (PVC, Deployment, Service, Route, bootstrap Job)
 - OpenShift ImageStream for pipeline images
 
 Install via the repository bootstrap script:

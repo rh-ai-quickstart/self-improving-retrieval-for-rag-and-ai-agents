@@ -100,6 +100,13 @@ delete_server_execute() {
         info "Helm release ${ZENML_RELEASE} was not found; skipping Helm uninstall."
     fi
 
+    section "Deleting the database-password Secret"
+
+    oc delete "secret/${ZENML_DB_PASSWORD_SECRET}" \
+        -n "${ZENML_NAMESPACE}" \
+        --ignore-not-found
+    success "Database-password Secret deletion completed."
+
     section "Deleting any remaining chart-owned PVCs"
 
     REMAINING_PVCS="$(oc get pvc \

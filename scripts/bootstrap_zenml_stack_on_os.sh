@@ -32,7 +32,11 @@ bootstrap_load_config "${CONFIG_FILE}"
 bootstrap_check_prerequisites
 bootstrap_verify_openshift_ai
 bootstrap_install_stack_chart
-bootstrap_wait_for_stack
+bootstrap_verify_workload_identity
+bootstrap_wait_for_kserve
+bootstrap_wait_for_mlflow
+bootstrap_wait_for_minio
+bootstrap_wait_for_minio_bucket
 bootstrap_setup_registry
 bootstrap_register_zenml_components
 bootstrap_print_summary

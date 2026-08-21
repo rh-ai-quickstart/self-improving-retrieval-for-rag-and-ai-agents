@@ -34,7 +34,11 @@ deploy_check_prerequisites
 deploy_ensure_project
 deploy_check_storage
 deploy_prepare_database_credentials
+# Two-step Helm: MySQL-only, wait until zenml-mysql is Ready, then enable ZenML
+# so the pre-install db-migration Job can resolve the database Service.
 deploy_install_helm "${VALUES_FILE}"
+deploy_wait_for_mysql
+deploy_wait_for_zenml
 deploy_verify_route
 deploy_check_health
 deploy_print_summary

@@ -355,9 +355,10 @@ just delete-server
 ```
 
 Phase 1 installs the [`deploy/helm/zenml-server/`](deploy/helm/zenml-server/)
-umbrella chart (upstream ZenML, Bitnami MySQL, OpenShift Route). Phase 2 installs
-[`deploy/helm/zenml-stack/`](deploy/helm/zenml-stack/) and then registers ZenML
-components with the local CLI.
+umbrella chart (upstream ZenML, Bitnami MySQL, OpenShift Route), then waits for
+MySQL, the ZenML Deployment, the Route, and `/health`. Phase 2 installs
+[`deploy/helm/zenml-stack/`](deploy/helm/zenml-stack/), waits for MLflow then
+MinIO, and registers ZenML components with the local CLI.
 
 ## References
 
@@ -381,9 +382,14 @@ The scripts provision the infrastructure in two phases.
 
 - The selected ZenML OSS version via the `zenml-server` umbrella Helm chart.
   Version `0.96.2` is the reference version used to validate this POC.
-- A persistent MySQL database from the Bitnami MySQL subchart.
+- A persistent MySQL database from the Bitnami MySQL subchart, using
+  `docker.io/bitnamilegacy/mysql:8.4.3-debian-12-r0` (the versioned
+  `docker.io/bitnami/mysql` tags were moved off Docker Hub).
 - Database credential Secrets and a `5Gi` PVC by default.
 - An edge-terminated OpenShift Route for the ZenML server.
+
+After Helm install, the Phase 1 script waits for MySQL, then the ZenML
+Deployment, then the Route and `/health`.
 
 **Remote workload project (`zenml-workloads` by default):**
 
@@ -396,13 +402,14 @@ The scripts provision the infrastructure in two phases.
 | Experiment tracker | OpenShift AI MLflow |
 | Model serving | OpenShift AI KServe |
 
-The remote-stack bootstrap installs the `zenml-stack` Helm chart, then creates
-the service account and required RBAC, smoke-tests the MinIO bucket, enables
-and authenticates to the integrated registry Route, and registers the
-components as the active ZenML stack.
+The remote-stack bootstrap installs the `zenml-stack` Helm chart (service
+account, RBAC, KServe permissions, MLflow, MinIO, and registry templates), then
+waits in this order: project/SA/RBAC, KServe Role/RoleBinding, MLflow Available,
+MinIO rollout and Route health, MinIO bucket bootstrap Job, integrated registry
+Route, and ZenML component registration as the active stack.
 
 MLflow is cluster-scoped. An existing configured instance is reused; otherwise,
-the script creates a single-replica instance backed by SQLite and a `10Gi`
+the chart creates a single-replica instance backed by SQLite and a `10Gi`
 PVC. The KServe `InferenceService` is created later by the pipeline rather
 than during infrastructure bootstrap.
 
