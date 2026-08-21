@@ -7,7 +7,15 @@ validate_server_check_database() {
     MYSQL_SERVICE_IP="unavailable"
     MYSQL_POD=""
 
-    if [[ "${PROJECT_EXISTS}" == "true" ]] && oc get deploymentconfig "${ZENML_DB_SERVICE}" -n "${ZENML_NAMESPACE}" >/dev/null 2>&1; then
+    if [[ "${PROJECT_EXISTS}" == "true" ]] && oc get statefulset "${ZENML_DB_SERVICE}" -n "${ZENML_NAMESPACE}" >/dev/null 2>&1; then
+        MYSQL_READY_REPLICAS="$(oc get statefulset "${ZENML_DB_SERVICE}" -n "${ZENML_NAMESPACE}" -o jsonpath='{.status.readyReplicas}')"
+        MYSQL_DESIRED_REPLICAS="$(oc get statefulset "${ZENML_DB_SERVICE}" -n "${ZENML_NAMESPACE}" -o jsonpath='{.spec.replicas}')"
+        if [[ -n "${MYSQL_DESIRED_REPLICAS}" && "${MYSQL_READY_REPLICAS:-0}" -ge "${MYSQL_DESIRED_REPLICAS}" ]]; then
+            pass "MySQL StatefulSet is ready (${MYSQL_READY_REPLICAS}/${MYSQL_DESIRED_REPLICAS})."
+        else
+            fail "MySQL StatefulSet is not fully ready (${MYSQL_READY_REPLICAS:-0}/${MYSQL_DESIRED_REPLICAS:-unknown})."
+        fi
+    elif [[ "${PROJECT_EXISTS}" == "true" ]] && oc get deploymentconfig "${ZENML_DB_SERVICE}" -n "${ZENML_NAMESPACE}" >/dev/null 2>&1; then
         MYSQL_AVAILABLE="$(oc get deploymentconfig "${ZENML_DB_SERVICE}" -n "${ZENML_NAMESPACE}" -o jsonpath='{.status.availableReplicas}')"
         if [[ "${MYSQL_AVAILABLE:-0}" -ge 1 ]]; then
             pass "MySQL DeploymentConfig is available."
@@ -15,14 +23,21 @@ validate_server_check_database() {
             fail "MySQL DeploymentConfig has no available replicas."
         fi
     else
-        fail "MySQL DeploymentConfig was not found: ${ZENML_DB_SERVICE}"
+        fail "MySQL workload was not found: ${ZENML_DB_SERVICE}"
     fi
 
     MYSQL_POD="$(oc get pods \
         -n "${ZENML_NAMESPACE}" \
-        -l "name=${ZENML_DB_SERVICE}" \
+        -l "app.kubernetes.io/name=mysql" \
         --field-selector=status.phase=Running \
         -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+    if [[ -z "${MYSQL_POD}" ]]; then
+        MYSQL_POD="$(oc get pods \
+            -n "${ZENML_NAMESPACE}" \
+            -l "name=${ZENML_DB_SERVICE}" \
+            --field-selector=status.phase=Running \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+    fi
     if [[ -n "${MYSQL_POD}" ]]; then
         MYSQL_READY="$(oc get pod "${MYSQL_POD}" -n "${ZENML_NAMESPACE}" -o jsonpath='{.status.containerStatuses[0].ready}')"
         if [[ "${MYSQL_READY}" == "true" ]]; then

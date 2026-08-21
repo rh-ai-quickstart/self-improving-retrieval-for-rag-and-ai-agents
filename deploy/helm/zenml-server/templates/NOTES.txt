@@ -1,0 +1,8 @@
+ZenML server umbrella chart installed.
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+Complete browser activation at the OpenShift Route, then run:
+  zenml login https://<route-host>
+  make bootstrap-stack

@@ -1,35 +1,19 @@
 #!/usr/bin/env bash
 
-deploy_ensure_route() {
-    section "Creating or verifying the OpenShift Route"
+deploy_verify_route() {
+    section "Verifying the OpenShift Route"
 
-    if oc get route "${ZENML_ROUTE}" -n "${ZENML_NAMESPACE}" >/dev/null 2>&1; then
-        info "Route ${ZENML_ROUTE} already exists; preserving it."
-        if [[ -n "${ZENML_ROUTE_HOST}" ]]; then
-            CURRENT_ROUTE_HOST="$(oc get route "${ZENML_ROUTE}" -n "${ZENML_NAMESPACE}" -o jsonpath='{.spec.host}')"
-            if [[ "${CURRENT_ROUTE_HOST}" != "${ZENML_ROUTE_HOST}" ]]; then
-                warn "Existing Route hostname ${CURRENT_ROUTE_HOST} differs from requested hostname ${ZENML_ROUTE_HOST}; the existing Route was not changed."
-            fi
-        fi
-    else
-        info "Creating an edge-terminated HTTPS Route for Service ${ZENML_SERVICE}."
-        ROUTE_ARGS=(
-            create route edge "${ZENML_ROUTE}"
-            "--service=${ZENML_SERVICE}"
-            "--insecure-policy=Redirect"
-            -n "${ZENML_NAMESPACE}"
-        )
-        if [[ -n "${ZENML_ROUTE_HOST}" ]]; then
-            ROUTE_ARGS+=("--hostname=${ZENML_ROUTE_HOST}")
-        fi
-        oc "${ROUTE_ARGS[@]}"
-        success "Created OpenShift Route ${ZENML_ROUTE}."
-    fi
+    oc get route "${ZENML_ROUTE}" -n "${ZENML_NAMESPACE}" >/dev/null 2>&1 \
+        || die "OpenShift Route was not found: ${ZENML_ROUTE}"
 
     ROUTE_HOST="$(oc get route "${ZENML_ROUTE}" -n "${ZENML_NAMESPACE}" -o jsonpath='{.spec.host}')"
     ZENML_URL="https://${ROUTE_HOST}"
     info "Route host: ${ROUTE_HOST}"
     info "ZenML URL:  ${ZENML_URL}"
+
+    if [[ -n "${ZENML_ROUTE_HOST}" && "${ROUTE_HOST}" != "${ZENML_ROUTE_HOST}" ]]; then
+        warn "Route hostname ${ROUTE_HOST} differs from requested hostname ${ZENML_ROUTE_HOST}."
+    fi
 }
 
 deploy_check_health() {
@@ -68,7 +52,7 @@ deploy_check_health() {
 deploy_print_summary() {
     section "Provisioned OpenShift resources"
 
-    oc get deployment,deploymentconfig,service,pvc,route \
+    oc get deployment,statefulset,service,pvc,route \
         -n "${ZENML_NAMESPACE}" \
         -o wide
 

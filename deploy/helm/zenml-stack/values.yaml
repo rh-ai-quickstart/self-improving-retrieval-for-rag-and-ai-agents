@@ -1,0 +1,45 @@
+# Defaults mirror deployment.env.example. Override at install time from deployment.env.
+
+orchestrator:
+  serviceAccountName: zenml-orchestrator
+
+minio:
+  enabled: true
+  image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+  clientImage: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+  secretName: minio-root
+  rootUser: zenml-admin
+  # Leave empty to auto-generate on first install when the Secret does not exist.
+  rootPassword: ""
+  storageClass: gp3-csi
+  storageSize: 10Gi
+  bucket: zenml-artifacts
+  routeName: minio-s3
+
+kserve:
+  enabled: true
+  roleName: zenml-kserve-deployer
+  roleBindingName: zenml-kserve-deployer
+
+mlflow:
+  enabled: true
+  instance: mlflow
+  storageClass: gp3-csi
+  storageSize: 10Gi
+  integrationClusterRole: mlflow-operator-mlflow-integration
+  roleBindingName: zenml-mlflow-integration
+  # Keep the cluster-scoped CR when the release is uninstalled.
+  retain: true
+
+registry:
+  enabled: true
+  pullSecretName: openshift-registry-route-pull
+  imageStreamName: zenml
+  # Pull secret token is minted post-install by refresh/bootstrap registry script.
+  createPullSecret: false
+  dockerServer: ""
+  dockerUsername: openshift
+  dockerPassword: ""
+
+commonLabels:
+  app.kubernetes.io/part-of: zenml-stack-bootstrap

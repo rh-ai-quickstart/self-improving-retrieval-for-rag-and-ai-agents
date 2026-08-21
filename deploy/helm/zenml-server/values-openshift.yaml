@@ -1,0 +1,18 @@
+# OpenShift-specific overrides for the zenml-server umbrella chart.
+
+zenml:
+  podSecurityContext:
+    fsGroup: null
+    fsGroupChangePolicy: null
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: null
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  server:
+    ingress:
+      enabled: false

@@ -344,19 +344,20 @@ just delete-server
 │       ├── server.py         # Embedding model HTTP server
 │       └── __main__.py       # Pipeline entry point (`python -m apps.retrieval_poc`)
 ├── deploy/
-│   ├── helm/
-│   │   └── openshift-values.yaml  # Values for the official ZenML Helm chart
-│   └── openshift/                 # Parameterized OpenShift resource templates
-├── scripts/                  # Bootstrap, validation, refresh, and deletion scripts
+│   └── helm/
+│       ├── zenml-server/     # Umbrella chart: ZenML + Bitnami MySQL + Route
+│       └── zenml-stack/      # Workload chart: MinIO, RBAC, MLflow, registry
+├── scripts/                  # Thin wrappers around Helm, ZenML CLI, and validation
 ├── docs/images/              # Architecture diagrams and screenshots
 ├── deployment.env.example    # Deployment and stack configuration example
 ├── justfile                  # User-facing deployment and operation commands
 └── README.md
 ```
 
-The ZenML server is installed from ZenML's published OCI Helm chart; the
-remaining OpenShift resources are rendered from `deploy/openshift/` and applied
-by the bootstrap scripts.
+Phase 1 installs the [`deploy/helm/zenml-server/`](deploy/helm/zenml-server/)
+umbrella chart (upstream ZenML, Bitnami MySQL, OpenShift Route). Phase 2 installs
+[`deploy/helm/zenml-stack/`](deploy/helm/zenml-stack/) and then registers ZenML
+components with the local CLI.
 
 ## References
 
@@ -378,10 +379,9 @@ The scripts provision the infrastructure in two phases.
 
 **ZenML server project (`zenml` by default):**
 
-- The selected ZenML OSS version, installed from the official ZenML OCI Helm
-  chart. Version `0.96.2` is the reference version used to validate this POC.
-- A persistent MySQL database created from OpenShift's
-  `openshift/mysql-persistent` template.
+- The selected ZenML OSS version via the `zenml-server` umbrella Helm chart.
+  Version `0.96.2` is the reference version used to validate this POC.
+- A persistent MySQL database from the Bitnami MySQL subchart.
 - Database credential Secrets and a `5Gi` PVC by default.
 - An edge-terminated OpenShift Route for the ZenML server.
 
@@ -396,9 +396,10 @@ The scripts provision the infrastructure in two phases.
 | Experiment tracker | OpenShift AI MLflow |
 | Model serving | OpenShift AI KServe |
 
-The remote-stack bootstrap creates the service account and required RBAC,
-smoke-tests the MinIO bucket, enables and authenticates to the integrated
-registry Route, and registers the components as the active ZenML stack.
+The remote-stack bootstrap installs the `zenml-stack` Helm chart, then creates
+the service account and required RBAC, smoke-tests the MinIO bucket, enables
+and authenticates to the integrated registry Route, and registers the
+components as the active ZenML stack.
 
 MLflow is cluster-scoped. An existing configured instance is reused; otherwise,
 the script creates a single-replica instance backed by SQLite and a `10Gi`

@@ -4,7 +4,7 @@ SHELL := /bin/bash
 
 DEPLOYMENT_ENV ?= deployment.env
 
-.PHONY: default help bootstrap bootstrap-server bootstrap-stack validate validate-server validate-stack refresh-stack-credentials run-pipeline validate-model delete delete-stack delete-server
+.PHONY: default help bootstrap bootstrap-server bootstrap-stack validate validate-server validate-stack refresh-stack-credentials run-pipeline validate-model delete delete-stack delete-server helm-lint helm-template
 
 default: help
 
@@ -127,3 +127,12 @@ delete-server:
 		exit 1; \
 	fi
 	./scripts/delete_zenml_on_os.sh "$(DEPLOYMENT_ENV)"
+
+helm-lint:
+	helm lint deploy/helm/zenml-stack
+	helm lint deploy/helm/zenml-server
+
+helm-template:
+	helm template zenml-stack deploy/helm/zenml-stack --namespace zenml-workloads
+	helm template zenml-server deploy/helm/zenml-server --namespace zenml \
+		-f deploy/helm/zenml-server/values-openshift.yaml

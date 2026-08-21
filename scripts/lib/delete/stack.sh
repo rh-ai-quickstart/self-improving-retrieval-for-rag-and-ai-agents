@@ -100,7 +100,18 @@ delete_stack_execute() {
         info "ZenML Secret ${ZENML_ARTIFACT_SECRET} is not present; skipping."
     fi
 
-    section "Deleting the dedicated workload project"
+    section "Deleting the workload Helm release and project"
+    ZENML_STACK_RELEASE="${ZENML_STACK_RELEASE:-zenml-stack}"
+    if helm status "${ZENML_STACK_RELEASE}" -n "${ZENML_WORKLOAD_NAMESPACE}" >/dev/null 2>&1; then
+        helm uninstall "${ZENML_STACK_RELEASE}" \
+            -n "${ZENML_WORKLOAD_NAMESPACE}" \
+            --wait \
+            --timeout 5m
+        success "Helm release ${ZENML_STACK_RELEASE} was uninstalled."
+    else
+        info "Helm release ${ZENML_STACK_RELEASE} is not present; continuing with project deletion."
+    fi
+
     if oc get project "${ZENML_WORKLOAD_NAMESPACE}" >/dev/null 2>&1; then
         oc delete project "${ZENML_WORKLOAD_NAMESPACE}" --wait=true --timeout=5m
         success "Deleted project ${ZENML_WORKLOAD_NAMESPACE} and its persistent workload data."

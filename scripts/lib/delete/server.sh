@@ -39,21 +39,12 @@ delete_server_show_resources() {
 
     section "Resources selected for deletion"
 
-    echo "    Helm release and its chart-managed resources:"
+    echo "    Helm umbrella release and its managed resources:"
     echo "      ${ZENML_RELEASE}"
-    echo
-    echo "    OpenShift Route:"
-    echo "      route/${ZENML_ROUTE}"
-    echo
-    echo "    Persistent MySQL resources:"
-    echo "      deploymentconfig/${ZENML_DB_SERVICE}"
-    echo "      service/${ZENML_DB_SERVICE}"
-    echo "      secret/${ZENML_DB_SERVICE}"
-    echo "      persistentvolumeclaim/${ZENML_DB_SERVICE}"
-    echo "      secret/${ZENML_DB_PASSWORD_SECRET}"
-    echo
-    echo "    Additional chart-owned PVCs carrying this Helm instance label:"
-    echo "      app.kubernetes.io/instance=${ZENML_RELEASE}"
+    echo "        ZenML server Deployment and Service"
+    echo "        Bitnami MySQL StatefulSet, Service, and PVC"
+    echo "        OpenShift Route ${ZENML_ROUTE}"
+    echo "        Database Secret ${ZENML_DB_PASSWORD_SECRET}"
     echo
     echo "    The OpenShift project ${ZENML_NAMESPACE} will be retained."
 
@@ -65,10 +56,10 @@ delete_server_show_resources() {
 
     oc get \
         "route/${ZENML_ROUTE}" \
-        "deploymentconfig/${ZENML_DB_SERVICE}" \
+        "statefulset/${ZENML_DB_SERVICE}" \
         "service/${ZENML_DB_SERVICE}" \
-        "secret/${ZENML_DB_SERVICE}" \
-        "persistentvolumeclaim/${ZENML_DB_SERVICE}" \
+        "service/${ZENML_SERVICE}" \
+        "deployment/${ZENML_RELEASE}" \
         "secret/${ZENML_DB_PASSWORD_SECRET}" \
         -n "${ZENML_NAMESPACE}" \
         --ignore-not-found \
@@ -97,14 +88,7 @@ delete_server_confirm() {
 }
 
 delete_server_execute() {
-    section "Deleting the public OpenShift Route"
-
-    oc delete "route/${ZENML_ROUTE}" \
-        -n "${ZENML_NAMESPACE}" \
-        --ignore-not-found
-    success "Route deletion completed."
-
-    section "Uninstalling the ZenML Helm release"
+    section "Uninstalling the ZenML server Helm release"
 
     if helm status "${ZENML_RELEASE}" -n "${ZENML_NAMESPACE}" >/dev/null 2>&1; then
         helm uninstall "${ZENML_RELEASE}" \
@@ -115,19 +99,6 @@ delete_server_execute() {
     else
         info "Helm release ${ZENML_RELEASE} was not found; skipping Helm uninstall."
     fi
-
-    section "Deleting the persistent MySQL database"
-
-    oc delete \
-        "deploymentconfig/${ZENML_DB_SERVICE}" \
-        "service/${ZENML_DB_SERVICE}" \
-        "secret/${ZENML_DB_SERVICE}" \
-        "persistentvolumeclaim/${ZENML_DB_SERVICE}" \
-        "secret/${ZENML_DB_PASSWORD_SECRET}" \
-        -n "${ZENML_NAMESPACE}" \
-        --ignore-not-found
-
-    success "MySQL workload, Services, Secrets, and primary PVC were deleted."
 
     section "Deleting any remaining chart-owned PVCs"
 
@@ -154,9 +125,8 @@ delete_server_verify() {
         "route/${ZENML_ROUTE}" \
         "deployment/${ZENML_RELEASE}" \
         "service/${ZENML_SERVICE}" \
-        "deploymentconfig/${ZENML_DB_SERVICE}" \
+        "statefulset/${ZENML_DB_SERVICE}" \
         "service/${ZENML_DB_SERVICE}" \
-        "persistentvolumeclaim/${ZENML_DB_SERVICE}" \
         -n "${ZENML_NAMESPACE}" \
         --ignore-not-found \
         -o name 2>/dev/null || true)"
@@ -174,11 +144,10 @@ delete_server_verify() {
     echo "    OpenShift cluster: ${OPENSHIFT_SERVER}"
     echo "    OpenShift project: ${ZENML_NAMESPACE} (retained)"
     echo "    Helm release:      ${ZENML_RELEASE} (removed)"
-    echo "    OpenShift Route:   ${ZENML_ROUTE} (removed)"
     echo "    MySQL database:    ${ZENML_DB_SERVICE} (removed)"
     echo "    Persistent data:   deleted"
     echo
     echo "To recreate the server infrastructure:"
-    echo "    just bootstrap-server"
+    echo "    make bootstrap-server"
     echo
 }

@@ -1,0 +1,9 @@
+ZenML remote workload stack installed.
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+Next steps:
+  1. Run the registry bootstrap step if pull credentials are not yet linked.
+  2. Register ZenML stack components with the local CLI.
+  3. Run `make validate-stack`.

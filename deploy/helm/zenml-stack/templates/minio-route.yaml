@@ -1,0 +1,19 @@
+{{- if .Values.minio.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Values.minio.routeName }}
+  labels:
+    {{- include "zenml-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/name: minio
+spec:
+  port:
+    targetPort: s3
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  to:
+    kind: Service
+    name: minio
+    weight: 100
+{{- end }}

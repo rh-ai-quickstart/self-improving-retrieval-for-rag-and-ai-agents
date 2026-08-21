@@ -32,8 +32,8 @@ deploy_ensure_project() {
     success "Using OpenShift project ${ZENML_NAMESPACE}"
 }
 
-deploy_check_storage_and_template() {
-    section "Checking persistent storage and the MySQL template"
+deploy_check_storage() {
+    section "Checking persistent storage"
 
     DEFAULT_STORAGE_CLASS="$(oc get storageclass -o jsonpath='{range .items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")]}{.metadata.name}{" "}{end}' | xargs)"
     if [[ -n "${DEFAULT_STORAGE_CLASS}" ]]; then
@@ -41,8 +41,4 @@ deploy_check_storage_and_template() {
     else
         warn "No default StorageClass was detected. A new MySQL PVC may remain Pending."
     fi
-
-    oc get template "${ZENML_DB_TEMPLATE}" -n "${ZENML_DB_TEMPLATE_NAMESPACE}" >/dev/null 2>&1 \
-        || die "OpenShift template ${ZENML_DB_TEMPLATE_NAMESPACE}/${ZENML_DB_TEMPLATE} was not found."
-    success "MySQL template available: ${ZENML_DB_TEMPLATE_NAMESPACE}/${ZENML_DB_TEMPLATE}"
 }

@@ -2,19 +2,14 @@
 
 bootstrap_load_config() {
     local config_file="$1"
-    local resource_template="$2"
-    local bucket_job_template="$3"
-    local mlflow_template="$4"
 
     section "Loading workload-stack configuration"
     load_stack_config "${config_file}"
-    [[ -f "${resource_template}" ]] || die "OpenShift template not found: ${resource_template}"
-    [[ -f "${bucket_job_template}" ]] || die "OpenShift template not found: ${bucket_job_template}"
-    [[ -f "${mlflow_template}" ]] || die "OpenShift template not found: ${mlflow_template}"
 
     info "Workload project:    ${ZENML_WORKLOAD_NAMESPACE}"
     info "Orchestrator SA:     ${ZENML_ORCHESTRATOR_SA}"
     info "ZenML stack:         ${ZENML_STACK}"
+    info "Helm release:        ${ZENML_STACK_RELEASE:-zenml-stack}"
     info "MinIO image:         ${MINIO_IMAGE}"
     info "MinIO client image:  ${MINIO_CLIENT_IMAGE}"
     info "MinIO storage:       ${MINIO_STORAGE_CLASS}/${MINIO_STORAGE_SIZE}"
@@ -32,6 +27,7 @@ bootstrap_check_prerequisites() {
     require_command zenml
     require_command openssl
     require_command python3
+    require_command helm
     require_command "${ZENML_PYTHON}"
 
     oc whoami >/dev/null 2>&1 || die "The oc CLI is not authenticated to OpenShift."

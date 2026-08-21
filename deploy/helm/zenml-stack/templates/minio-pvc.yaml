@@ -1,0 +1,16 @@
+{{- if .Values.minio.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-data
+  labels:
+    {{- include "zenml-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/name: minio
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.minio.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.minio.storageSize }}
+{{- end }}

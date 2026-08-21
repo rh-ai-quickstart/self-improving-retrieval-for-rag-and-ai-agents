@@ -29,8 +29,6 @@ deploy_load_config() {
     ZENML_ROUTE="${ZENML_ROUTE:-zenml-server}"
     ZENML_ROUTE_HOST="${ZENML_ROUTE_HOST:-}"
 
-    ZENML_DB_TEMPLATE="${ZENML_DB_TEMPLATE:-mysql-persistent}"
-    ZENML_DB_TEMPLATE_NAMESPACE="${ZENML_DB_TEMPLATE_NAMESPACE:-openshift}"
     ZENML_DB_SERVICE="${ZENML_DB_SERVICE:-zenml-mysql}"
     ZENML_DB_NAME="${ZENML_DB_NAME:-zenml}"
     ZENML_DB_USER="${ZENML_DB_USER:-zenml}"
