@@ -7,9 +7,9 @@ from zenml.integrations.kubernetes.flavors.kubernetes_orchestrator_flavor import
 )
 from zenml.integrations.kubernetes.pod_settings import KubernetesPodSettings
 
-from retrieval_poc.config import MODELS, ModelConfig
-from retrieval_poc.deployment import deploy_winning_model
-from retrieval_poc.steps import (
+from apps.retrieval_poc.config import MODELS, ModelConfig
+from apps.retrieval_poc.deployment import deploy_winning_model
+from apps.retrieval_poc.steps import (
     evaluate_embedding_model,
     prepare_dataset,
     select_best_model,
@@ -55,7 +55,7 @@ PIPELINE_ORCHESTRATOR_RESOURCES = {
             required_integrations=["mlflow"],
             # KServe starts this image directly with Uvicorn, outside the
             # normal ZenML entrypoint that downloads pipeline code at runtime.
-            # Installing the local project makes retrieval_poc importable in
+            # Installing the local project makes apps.retrieval_poc importable in
             # both execution modes and forces ZenML to include it in the image.
             local_project_install_command="uv pip install --no-deps .",
             python_package_installer_args={"torch-backend": "cpu"},

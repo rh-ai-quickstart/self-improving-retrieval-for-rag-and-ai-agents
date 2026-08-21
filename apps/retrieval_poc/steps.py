@@ -7,9 +7,9 @@ from typing import Any
 import mlflow
 from zenml import step
 
-from retrieval_poc.config import ModelConfig
-from retrieval_poc.dataset import RetrievalBenchmark, load_scifact
-from retrieval_poc.evaluation import evaluate_model
+from apps.retrieval_poc.config import ModelConfig
+from apps.retrieval_poc.dataset import RetrievalBenchmark, load_scifact
+from apps.retrieval_poc.evaluation import evaluate_model
 
 
 @step(enable_cache=True)

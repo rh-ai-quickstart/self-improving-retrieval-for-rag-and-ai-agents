@@ -334,17 +334,18 @@ just delete-server
 
 ```
 .
-├── retrieval_poc/            # Pipeline, evaluation, deployment, and serving code
-│   ├── pipeline.py           # Dynamic ZenML pipeline and runtime settings
-│   ├── steps.py              # Dataset, evaluation, and selection steps
-│   ├── deployment.py         # KServe InferenceService deployment step
-│   └── server.py             # Embedding model HTTP server
+├── apps/
+│   └── retrieval_poc/        # Pipeline, evaluation, deployment, and serving code
+│       ├── pipeline.py       # Dynamic ZenML pipeline and runtime settings
+│       ├── steps.py          # Dataset, evaluation, and selection steps
+│       ├── deployment.py     # KServe InferenceService deployment step
+│       ├── server.py         # Embedding model HTTP server
+│       └── __main__.py       # Pipeline entry point (`python -m apps.retrieval_poc`)
 ├── openshift/                # Parameterized OpenShift resource templates
 ├── scripts/                  # Bootstrap, validation, refresh, and deletion scripts
 ├── docs/images/              # Architecture diagrams and screenshots
 ├── deployment.env.example    # Deployment and stack configuration example
 ├── openshift-values.yaml     # Values for the official ZenML Helm chart
-├── run_retrieval_pipeline.py # Local pipeline entry point
 ├── pyproject.toml            # Python package and dependency metadata
 ├── justfile                  # User-facing deployment and operation commands
 └── README.md

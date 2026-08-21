@@ -10,8 +10,8 @@ from typing import Any
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from retrieval_poc.config import ModelConfig
-from retrieval_poc.dataset import RetrievalBenchmark
+from apps.retrieval_poc.config import ModelConfig
+from apps.retrieval_poc.dataset import RetrievalBenchmark
 
 
 def evaluate_model(

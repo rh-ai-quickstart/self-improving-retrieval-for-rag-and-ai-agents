@@ -91,7 +91,7 @@ def _manifest(
                         "imagePullPolicy": "IfNotPresent",
                         "command": ["python", "-m", "uvicorn"],
                         "args": [
-                            "retrieval_poc.server:app",
+                            "apps.retrieval_poc.server:app",
                             "--host",
                             "0.0.0.0",
                             "--port",

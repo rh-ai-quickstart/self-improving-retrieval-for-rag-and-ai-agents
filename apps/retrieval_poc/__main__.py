@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from retrieval_poc.pipeline import retrieval_model_selection_pipeline
+from .pipeline import retrieval_model_selection_pipeline
 
 
 if __name__ == "__main__":
