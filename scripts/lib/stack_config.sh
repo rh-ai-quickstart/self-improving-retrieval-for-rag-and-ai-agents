@@ -1,39 +1,5 @@
 #!/usr/bin/env bash
 
-# Shared configuration and output helpers for the ZenML workload-stack scripts.
-
-STACK_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-STACK_REPO_ROOT="$(cd -- "${STACK_SCRIPT_DIR}/.." && pwd)"
-
-section() {
-    echo
-    echo "======================================================================"
-    echo "==> $1"
-    echo "======================================================================"
-}
-
-info() {
-    echo "    $1"
-}
-
-success() {
-    echo "    OK: $1"
-}
-
-warn() {
-    echo "    WARNING: $1" >&2
-}
-
-die() {
-    echo >&2
-    echo "ERROR: $1" >&2
-    exit 1
-}
-
-require_command() {
-    command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"
-}
-
 zenml_public_secret_id() {
     local secret_name="$1"
 
@@ -53,15 +19,6 @@ except KeyError:
 
 print(secret.id)
 PY
-}
-
-validate_dns_name() {
-    local label="$1"
-    local value="$2"
-
-    if [[ ! "${value}" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; then
-        die "${label} must be a lowercase DNS label: ${value}"
-    fi
 }
 
 load_stack_config() {
