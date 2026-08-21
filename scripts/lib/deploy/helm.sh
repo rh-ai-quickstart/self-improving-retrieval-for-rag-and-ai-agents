@@ -8,34 +8,11 @@ deploy_prepare_database_credentials() {
     if oc get service "${ZENML_DB_SERVICE}" -n "${ZENML_NAMESPACE}" >/dev/null 2>&1; then
         info "Database Service ${ZENML_DB_SERVICE} already exists; preserving credentials."
         if oc get secret "${ZENML_DB_PASSWORD_SECRET}" -n "${ZENML_NAMESPACE}" >/dev/null 2>&1; then
-            if [[ -n "${ZENML_DB_PASSWORD}" ]]; then
-                warn "The database already existed, so the supplied password was not applied or rotated."
+            if [[ -n "${ZENML_DB_PASSWORD}" || -n "${ZENML_DB_ROOT_PASSWORD}" ]]; then
+                warn "The database already existed, so supplied passwords were not applied or rotated."
             fi
-        elif [[ -n "${ZENML_DB_PASSWORD}" ]]; then
-            info "Creating ${ZENML_DB_PASSWORD_SECRET} for the ZenML Helm chart."
-            DB_PASSWORD_FILE="$(mktemp)"
-            cleanup_files+=("${DB_PASSWORD_FILE}")
-            chmod 600 "${DB_PASSWORD_FILE}"
-            printf '%s' "${ZENML_DB_PASSWORD}" > "${DB_PASSWORD_FILE}"
-            oc create secret generic "${ZENML_DB_PASSWORD_SECRET}" \
-                -n "${ZENML_NAMESPACE}" \
-                --from-file="password=${DB_PASSWORD_FILE}" \
-                --dry-run=client \
-                -o yaml \
-                | oc apply -f -
-            success "Created the ZenML database-password Secret."
-        else
-            die "Database ${ZENML_DB_SERVICE} already exists, but Secret ${ZENML_DB_PASSWORD_SECRET} does not. Set ZENML_DB_PASSWORD in the private environment file."
-        fi
-    else
-        require_command openssl
-        if [[ -z "${ZENML_DB_PASSWORD}" ]]; then
-            ZENML_DB_PASSWORD="$(openssl rand -hex 24)"
-            info "Generated a random database-user password."
-        fi
-        if [[ -z "${ZENML_DB_ROOT_PASSWORD}" ]]; then
-            ZENML_DB_ROOT_PASSWORD="$(openssl rand -hex 24)"
-            info "Generated a random MySQL root password."
+        elif [[ -z "${ZENML_DB_PASSWORD}" ]]; then
+            die "Database ${ZENML_DB_SERVICE} already exists, but Secret ${ZENML_DB_PASSWORD_SECRET} does not. Set ZENML_DB_PASSWORD in deployment.env or database.password in deploy/helm/zenml-server/secrets.yaml."
         fi
     fi
 
@@ -103,6 +80,9 @@ deploy_install_helm() {
     info "Namespace: ${ZENML_NAMESPACE}"
     info "Values:    ${openshift_values}"
 
+    # shellcheck source=lib/helm/secrets.sh
+    source "${SCRIPT_DIR}/lib/helm/secrets.sh"
+
     local -a helm_args=(
         upgrade --install "${ZENML_RELEASE}" "${SERVER_CHART_PATH}"
         --namespace "${ZENML_NAMESPACE}"
@@ -113,6 +93,9 @@ deploy_install_helm() {
         --set "mysql.fullnameOverride=${ZENML_DB_SERVICE}"
         --set "mysql.auth.database=${ZENML_DB_NAME}"
         --set "mysql.auth.username=${ZENML_DB_USER}"
+        --set "mysql.auth.existingSecret=${ZENML_DB_PASSWORD_SECRET}"
+        --set "mysql.auth.secretKeys.adminPasswordKey=mysql-root-password"
+        --set "mysql.auth.secretKeys.userPasswordKey=password"
         --set "mysql.primary.persistence.size=${ZENML_DB_STORAGE}"
         --set "mysql.primary.resources.requests.memory=${ZENML_DB_MEMORY}"
         --set "mysql.primary.resources.limits.memory=${ZENML_DB_MEMORY}"
@@ -124,24 +107,19 @@ deploy_install_helm() {
         --set "route.serviceName=${ZENML_SERVICE}"
     )
 
+    helm_append_secrets_values helm_args "${SERVER_CHART_PATH}"
+
     if [[ -n "${ZENML_ROUTE_HOST}" ]]; then
         helm_args+=(--set-string "route.host=${ZENML_ROUTE_HOST}")
     fi
     if [[ -n "${ZENML_DB_PASSWORD}" ]]; then
         helm_args+=(
-            --set-string "mysql.auth.password=${ZENML_DB_PASSWORD}"
             --set-string "database.password=${ZENML_DB_PASSWORD}"
         )
     fi
     if [[ -n "${ZENML_DB_ROOT_PASSWORD}" ]]; then
-        helm_args+=(--set-string "mysql.auth.rootPassword=${ZENML_DB_ROOT_PASSWORD}")
-        helm_args+=(--set-string "database.rootPassword=${ZENML_DB_ROOT_PASSWORD}")
-    fi
-    if oc get secret "${ZENML_DB_PASSWORD_SECRET}" -n "${ZENML_NAMESPACE}" >/dev/null 2>&1; then
         helm_args+=(
-            --set "mysql.auth.existingSecret=${ZENML_DB_PASSWORD_SECRET}"
-            --set "mysql.auth.secretKeys.adminPasswordKey=mysql-root-password"
-            --set "mysql.auth.secretKeys.userPasswordKey=password"
+            --set-string "database.rootPassword=${ZENML_DB_ROOT_PASSWORD}"
         )
     fi
 

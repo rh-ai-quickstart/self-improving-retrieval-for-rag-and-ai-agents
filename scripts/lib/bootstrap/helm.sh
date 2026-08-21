@@ -37,6 +37,9 @@ bootstrap_install_stack_chart() {
     info "Release:   ${ZENML_STACK_RELEASE}"
     info "Namespace: ${ZENML_WORKLOAD_NAMESPACE}"
 
+    # shellcheck source=lib/helm/secrets.sh
+    source "${SCRIPT_DIR}/lib/helm/secrets.sh"
+
     local -a helm_args=(
         upgrade --install "${ZENML_STACK_RELEASE}" "${STACK_CHART_PATH}"
         --namespace "${ZENML_WORKLOAD_NAMESPACE}"
@@ -60,6 +63,8 @@ bootstrap_install_stack_chart() {
         --set "registry.pullSecretName=${ZENML_REGISTRY_PULL_SECRET}"
         --set "registry.imageStreamName=zenml"
     )
+
+    helm_append_secrets_values helm_args "${STACK_CHART_PATH}"
 
     if [[ -n "${MINIO_ROOT_PASSWORD}" ]]; then
         helm_args+=(--set-string "minio.rootPassword=${MINIO_ROOT_PASSWORD}")

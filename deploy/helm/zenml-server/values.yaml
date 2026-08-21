@@ -27,6 +27,7 @@ mysql:
   auth:
     database: zenml
     username: zenml
+    # Passwords are supplied through secrets.yaml or deployment.env.
     password: ""
     rootPassword: ""
   primary:
@@ -41,6 +42,7 @@ mysql:
 
 database:
   passwordSecretName: zenml-db-password
+  # Passwords are supplied through secrets.yaml or deployment.env.
   password: ""
   rootPassword: ""
   name: zenml

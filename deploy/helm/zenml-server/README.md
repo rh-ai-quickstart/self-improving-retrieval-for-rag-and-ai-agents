@@ -21,3 +21,21 @@ helm dependency build deploy/helm/zenml-server
 
 Key values are supplied from `deployment.env` by
 `scripts/deploy_zenml_on_os.sh`.
+
+## Secrets
+
+Copy the example secrets file and restrict its permissions before the first
+install:
+
+```bash
+cp deploy/helm/zenml-server/secrets.yaml.example deploy/helm/zenml-server/secrets.yaml
+chmod 600 deploy/helm/zenml-server/secrets.yaml
+```
+
+Leave `database.password` and `database.rootPassword` empty to auto-generate
+credentials on first install. Existing cluster Secrets are preserved on later
+upgrades even when these fields stay empty.
+
+You can also supply passwords through `deployment.env` (`ZENML_DB_PASSWORD`
+and `ZENML_DB_ROOT_PASSWORD`), which override the chart secrets file at
+install time.

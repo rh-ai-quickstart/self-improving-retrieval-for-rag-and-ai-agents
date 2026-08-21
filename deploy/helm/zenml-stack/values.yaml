@@ -9,6 +9,7 @@ minio:
   clientImage: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
   secretName: minio-root
   rootUser: zenml-admin
+  # Password is supplied through secrets.yaml or deployment.env.
   # Leave empty to auto-generate on first install when the Secret does not exist.
   rootPassword: ""
   storageClass: gp3-csi

@@ -59,6 +59,7 @@ deploy_load_config() {
     info "  Database storage:  ${ZENML_DB_STORAGE}"
     info "  Database memory:   ${ZENML_DB_MEMORY}"
     info "  Password Secret:   ${ZENML_DB_PASSWORD_SECRET}"
+    info "  Chart secrets:     deploy/helm/zenml-server/secrets.yaml"
     if [[ -n "${ZENML_ROUTE_HOST}" ]]; then
         info "  Requested hostname: ${ZENML_ROUTE_HOST}"
     else
