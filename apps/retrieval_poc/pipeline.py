@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from zenml import pipeline
 from zenml.config import DockerSettings
+from zenml.config.docker_settings import DockerBuildConfig
 from zenml.integrations.kubernetes.flavors.kubernetes_orchestrator_flavor import (
     KubernetesOrchestratorSettings,
 )
@@ -53,13 +54,15 @@ PIPELINE_ORCHESTRATOR_RESOURCES = {
         "docker": DockerSettings(
             requirements=PIPELINE_REQUIREMENTS,
             required_integrations=["mlflow"],
+            pyproject_path="apps/pyproject.toml",
             # KServe starts this image directly with Uvicorn, outside the
             # normal ZenML entrypoint that downloads pipeline code at runtime.
             # Installing the local project makes apps.retrieval_poc importable in
             # both execution modes and forces ZenML to include it in the image.
-            local_project_install_command="uv pip install --no-deps .",
+            local_project_install_command="uv pip install --no-deps ./apps",
             python_package_installer_args={"torch-backend": "cpu"},
             runtime_environment=PIPELINE_RUNTIME_ENVIRONMENT,
+            build_config=DockerBuildConfig(dockerignore="apps/.dockerignore"),
         ),
         "orchestrator.kubernetes": KubernetesOrchestratorSettings(
             max_parallelism=PIPELINE_MAX_PARALLEL_STEPS,

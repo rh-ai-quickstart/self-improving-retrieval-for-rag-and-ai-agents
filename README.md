@@ -188,7 +188,7 @@ dependencies:
 python -m venv env
 source env/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e .
+python -m pip install -e apps/
 ```
 
 The unpinned project dependency installs the newest ZenML release compatible
@@ -197,7 +197,7 @@ version, install it explicitly before installing the project:
 
 ```bash
 python -m pip install 'zenml[server]==0.96.2'
-python -m pip install -e .
+python -m pip install -e apps/
 ```
 
 `just bootstrap-stack` installs the S3 and MLflow integrations through
@@ -335,25 +335,28 @@ just delete-server
 ```
 .
 ├── apps/
+│   ├── pyproject.toml        # Python package and dependency metadata
+│   ├── .dockerignore         # Docker build exclusions for pipeline images
 │   └── retrieval_poc/        # Pipeline, evaluation, deployment, and serving code
 │       ├── pipeline.py       # Dynamic ZenML pipeline and runtime settings
 │       ├── steps.py          # Dataset, evaluation, and selection steps
 │       ├── deployment.py     # KServe InferenceService deployment step
 │       ├── server.py         # Embedding model HTTP server
 │       └── __main__.py       # Pipeline entry point (`python -m apps.retrieval_poc`)
-├── openshift/                # Parameterized OpenShift resource templates
+├── deploy/
+│   ├── helm/
+│   │   └── openshift-values.yaml  # Values for the official ZenML Helm chart
+│   └── openshift/                 # Parameterized OpenShift resource templates
 ├── scripts/                  # Bootstrap, validation, refresh, and deletion scripts
 ├── docs/images/              # Architecture diagrams and screenshots
 ├── deployment.env.example    # Deployment and stack configuration example
-├── openshift-values.yaml     # Values for the official ZenML Helm chart
-├── pyproject.toml            # Python package and dependency metadata
 ├── justfile                  # User-facing deployment and operation commands
 └── README.md
 ```
 
 The ZenML server is installed from ZenML's published OCI Helm chart; the
-remaining OpenShift resources are rendered from `openshift/` and applied by
-the bootstrap scripts.
+remaining OpenShift resources are rendered from `deploy/openshift/` and applied
+by the bootstrap scripts.
 
 ## References
 

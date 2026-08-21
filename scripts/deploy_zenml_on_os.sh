@@ -11,7 +11,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 CONFIG_FILE="${1:-${REPO_ROOT}/deployment.env}"
-VALUES_FILE="${REPO_ROOT}/openshift-values.yaml"
+VALUES_FILE="${REPO_ROOT}/deploy/helm/openshift-values.yaml"
 
 section() {
     echo

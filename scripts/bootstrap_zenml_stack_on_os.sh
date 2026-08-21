@@ -7,9 +7,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 CONFIG_FILE="${1:-${REPO_ROOT}/deployment.env}"
-RESOURCE_TEMPLATE="${REPO_ROOT}/openshift/zenml-stack-resources.yaml"
-BUCKET_JOB_TEMPLATE="${REPO_ROOT}/openshift/minio-bootstrap-job.yaml"
-MLFLOW_TEMPLATE="${REPO_ROOT}/openshift/mlflow.yaml"
+RESOURCE_TEMPLATE="${REPO_ROOT}/deploy/openshift/zenml-stack-resources.yaml"
+BUCKET_JOB_TEMPLATE="${REPO_ROOT}/deploy/openshift/minio-bootstrap-job.yaml"
+MLFLOW_TEMPLATE="${REPO_ROOT}/deploy/openshift/mlflow.yaml"
 
 # shellcheck source=stack_common.sh
 source "${SCRIPT_DIR}/stack_common.sh"
