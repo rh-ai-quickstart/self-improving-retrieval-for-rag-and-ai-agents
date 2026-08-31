@@ -1,0 +1,15 @@
+apiVersion: v2
+name: zenml-server
+description: Umbrella chart for ZenML OSS, Bitnami MySQL, and the OpenShift Route
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: zenml
+    version: "0.96.2"
+    repository: oci://public.ecr.aws/zenml
+    condition: zenml.enabled
+  - name: mysql
+    version: "11.1.19"
+    repository: https://charts.bitnami.com/bitnami
+    condition: mysql.enabled

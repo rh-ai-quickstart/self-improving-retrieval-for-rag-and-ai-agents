@@ -188,7 +188,7 @@ dependencies:
 python -m venv env
 source env/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e .
+python -m pip install -e apps/
 ```
 
 The unpinned project dependency installs the newest ZenML release compatible
@@ -197,7 +197,7 @@ version, install it explicitly before installing the project:
 
 ```bash
 python -m pip install 'zenml[server]==0.96.2'
-python -m pip install -e .
+python -m pip install -e apps/
 ```
 
 `just bootstrap-stack` installs the S3 and MLflow integrations through
@@ -334,27 +334,31 @@ just delete-server
 
 ```
 .
-├── retrieval_poc/            # Pipeline, evaluation, deployment, and serving code
-│   ├── pipeline.py           # Dynamic ZenML pipeline and runtime settings
-│   ├── steps.py              # Dataset, evaluation, and selection steps
-│   ├── deployment.py         # KServe InferenceService deployment step
-│   └── server.py             # Embedding model HTTP server
-├── openshift/                # Parameterized OpenShift resource templates
-├── scripts/                  # Bootstrap, validation, refresh, and deletion scripts
-├── chart/                    # Unused quickstart-template Helm scaffolding
+├── apps/
+│   ├── pyproject.toml        # Python package and dependency metadata
+│   ├── .dockerignore         # Docker build exclusions for pipeline images
+│   └── retrieval_poc/        # Pipeline, evaluation, deployment, and serving code
+│       ├── pipeline.py       # Dynamic ZenML pipeline and runtime settings
+│       ├── steps.py          # Dataset, evaluation, and selection steps
+│       ├── deployment.py     # KServe InferenceService deployment step
+│       ├── server.py         # Embedding model HTTP server
+│       └── __main__.py       # Pipeline entry point (`python -m apps.retrieval_poc`)
+├── deploy/
+│   └── helm/
+│       ├── zenml-server/     # Umbrella chart: ZenML + Bitnami MySQL + Route
+│       └── zenml-stack/      # Workload chart: MinIO, RBAC, MLflow, registry
+├── scripts/                  # Thin wrappers around Helm, ZenML CLI, and validation
 ├── docs/images/              # Architecture diagrams and screenshots
 ├── deployment.env.example    # Deployment and stack configuration example
-├── openshift-values.yaml     # Values for the official ZenML Helm chart
-├── run_retrieval_pipeline.py # Local pipeline entry point
-├── pyproject.toml            # Python package and dependency metadata
 ├── justfile                  # User-facing deployment and operation commands
 └── README.md
 ```
 
-The local `chart/` directory comes from the quickstart template and is not used
-by this implementation. The ZenML server is installed from ZenML's published
-OCI Helm chart; the remaining OpenShift resources are rendered from
-`openshift/` and applied by the bootstrap scripts.
+Phase 1 installs the [`deploy/helm/zenml-server/`](deploy/helm/zenml-server/)
+umbrella chart (upstream ZenML, Bitnami MySQL, OpenShift Route), then waits for
+MySQL, the ZenML Deployment, the Route, and `/health`. Phase 2 installs
+[`deploy/helm/zenml-stack/`](deploy/helm/zenml-stack/), waits for MLflow then
+MinIO, and registers ZenML components with the local CLI.
 
 ## References
 
@@ -376,12 +380,16 @@ The scripts provision the infrastructure in two phases.
 
 **ZenML server project (`zenml` by default):**
 
-- The selected ZenML OSS version, installed from the official ZenML OCI Helm
-  chart. Version `0.96.2` is the reference version used to validate this POC.
-- A persistent MySQL database created from OpenShift's
-  `openshift/mysql-persistent` template.
+- The selected ZenML OSS version via the `zenml-server` umbrella Helm chart.
+  Version `0.96.2` is the reference version used to validate this POC.
+- A persistent MySQL database from the Bitnami MySQL subchart, using
+  `docker.io/bitnamilegacy/mysql:8.4.3-debian-12-r0` (the versioned
+  `docker.io/bitnami/mysql` tags were moved off Docker Hub).
 - Database credential Secrets and a `5Gi` PVC by default.
 - An edge-terminated OpenShift Route for the ZenML server.
+
+After Helm install, the Phase 1 script waits for MySQL, then the ZenML
+Deployment, then the Route and `/health`.
 
 **Remote workload project (`zenml-workloads` by default):**
 
@@ -394,12 +402,14 @@ The scripts provision the infrastructure in two phases.
 | Experiment tracker | OpenShift AI MLflow |
 | Model serving | OpenShift AI KServe |
 
-The remote-stack bootstrap creates the service account and required RBAC,
-smoke-tests the MinIO bucket, enables and authenticates to the integrated
-registry Route, and registers the components as the active ZenML stack.
+The remote-stack bootstrap installs the `zenml-stack` Helm chart (service
+account, RBAC, KServe permissions, MLflow, MinIO, and registry templates), then
+waits in this order: project/SA/RBAC, KServe Role/RoleBinding, MLflow Available,
+MinIO rollout and Route health, MinIO bucket bootstrap Job, integrated registry
+Route, and ZenML component registration as the active stack.
 
 MLflow is cluster-scoped. An existing configured instance is reused; otherwise,
-the script creates a single-replica instance backed by SQLite and a `10Gi`
+the chart creates a single-replica instance backed by SQLite and a `10Gi`
 PVC. The KServe `InferenceService` is created later by the pipeline rather
 than during infrastructure bootstrap.
 

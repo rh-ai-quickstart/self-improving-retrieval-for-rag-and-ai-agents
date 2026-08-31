@@ -79,7 +79,7 @@ run-pipeline: refresh-stack-credentials
         echo "ERROR: Configuration file not found: {{deployment_env}}" >&2; \
         exit 1; \
     fi
-    set -a; source "{{deployment_env}}"; set +a; python run_retrieval_pipeline.py
+    set -a; source "{{deployment_env}}"; set +a; python -m apps.retrieval_poc
 
 # Check that the selected KServe model is ready and returns an embedding.
 validate-model:

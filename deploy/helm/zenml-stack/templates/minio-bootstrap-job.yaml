@@ -1,0 +1,62 @@
+{{- if .Values.minio.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-bootstrap
+  labels:
+    {{- include "zenml-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/name: minio-bootstrap
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 4
+  template:
+    metadata:
+      labels:
+        {{- include "zenml-stack.labels" . | nindent 8 }}
+        app.kubernetes.io/name: minio-bootstrap
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mc
+          image: {{ .Values.minio.clientImage }}
+          env:
+            - name: MC_CONFIG_DIR
+              value: /tmp/.mc
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.secretName }}
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.secretName }}
+                  key: MINIO_ROOT_PASSWORD
+            - name: MINIO_BUCKET
+              value: {{ .Values.minio.bucket | quote }}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              until mc alias set minio http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+                echo "Waiting for MinIO..."
+                sleep 2
+              done
+
+              mc mb --ignore-existing "minio/${MINIO_BUCKET}"
+              printf '%s\n' "ZenML artifact store test" | mc pipe "minio/${MINIO_BUCKET}/smoke-test.txt"
+              mc ls "minio/${MINIO_BUCKET}"
+              mc cat "minio/${MINIO_BUCKET}/smoke-test.txt"
+{{- end }}

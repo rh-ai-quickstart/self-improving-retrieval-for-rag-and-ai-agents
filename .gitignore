@@ -16,3 +16,11 @@ __pycache__/
 mlruns/
 .zen/
 .DS_Store
+
+# Helm subcharts and temporary build artifacts
+deploy/helm/zenml-server/charts/
+deploy/helm/zenml-server/tmpcharts-*/
+
+# Chart-local secret values (copy from secrets.yaml.example)
+deploy/helm/zenml-server/secrets.yaml
+deploy/helm/zenml-stack/secrets.yaml

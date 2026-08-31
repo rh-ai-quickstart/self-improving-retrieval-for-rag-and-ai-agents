@@ -1,0 +1,24 @@
+{{- if and .Values.mlflow.enabled (not (lookup "mlflow.opendatahub.io/v1" "MLflow" "" .Values.mlflow.instance)) }}
+apiVersion: mlflow.opendatahub.io/v1
+kind: MLflow
+metadata:
+  name: {{ .Values.mlflow.instance }}
+  labels:
+    {{- include "zenml-stack.labels" . | nindent 4 }}
+  {{- if .Values.mlflow.retain }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
+spec:
+  replicas: 1
+  backendStoreUri: sqlite:////mlflow/mlflow.db
+  artifactsDestination: file:///mlflow/artifacts
+  serveArtifacts: true
+  storage:
+    storageClassName: {{ .Values.mlflow.storageClass }}
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: {{ .Values.mlflow.storageSize }}
+{{- end }}

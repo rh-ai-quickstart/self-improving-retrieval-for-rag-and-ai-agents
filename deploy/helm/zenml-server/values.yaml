@@ -1,0 +1,71 @@
+# Bootstrap installs this chart in two Helm passes: MySQL first
+# (zenml.enabled=false) so Service zenml-mysql exists, then ZenML
+# (zenml.enabled=true) so the pre-install db-migration Job can resolve DNS.
+zenml:
+  enabled: true
+  podSecurityContext:
+    fsGroup: null
+    fsGroupChangePolicy: null
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: null
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  server:
+    ingress:
+      enabled: false
+    database:
+      url: mysql://zenml@zenml-mysql:3306/zenml
+      passwordSecretRef:
+        name: zenml-db-password
+        key: password
+
+mysql:
+  enabled: true
+  fullnameOverride: zenml-mysql
+  # Subchart 11.1.19 defaults to docker.io/bitnami/mysql:8.4.3-debian-12-r0.
+  # Docker Hub removed versioned bitnami/* tags; the same tag lives on
+  # bitnamilegacy (public, no pull secret). RHEL mysql-80 is not a drop-in
+  # replacement for this chart (entrypoint, data dir, probes, auth).
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/mysql
+    tag: 8.4.3-debian-12-r0
+    pullPolicy: IfNotPresent
+  auth:
+    database: zenml
+    username: zenml
+    # Passwords are supplied through secrets.yaml or deployment.env.
+    password: ""
+    rootPassword: ""
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      requests:
+        memory: 1Gi
+      limits:
+        memory: 1Gi
+
+database:
+  passwordSecretName: zenml-db-password
+  # Passwords are supplied through secrets.yaml or deployment.env.
+  password: ""
+  rootPassword: ""
+  name: zenml
+  user: zenml
+  serviceName: zenml-mysql
+
+route:
+  enabled: true
+  name: zenml-server
+  serviceName: zenml-server
+  host: ""
+
+zenmlRelease:
+  serviceName: zenml-server
