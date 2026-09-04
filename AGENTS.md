@@ -3,7 +3,7 @@
 This repository is a **Red Hat Quickstart** for evaluating, selecting, and deploying
 embedding models on **Red Hat OpenShift AI** using **ZenML**. It is not a full RAG
 application: it covers benchmark preparation, parallel model evaluation, winner
-selection, and KServe deployment of the chosen embedding model.
+selection, FAISS indexing, and KServe deployment of a working semantic-search UI.
 
 Use this file to orient quickly. Human-facing deployment details live in
 [`README.md`](README.md); Python application details live in
@@ -11,10 +11,12 @@ Use this file to orient quickly. Human-facing deployment details live in
 
 ## What this project does
 
-1. **Prepare benchmark** — load a reproducible BEIR SciFact subset.
+1. **Prepare benchmark** — load answerable TechQA development questions and a
+   reproducible corpus of IBM Technotes.
 2. **Evaluate candidates** — run up to three embedding models in parallel on OpenShift.
 3. **Select winner** — choose the model with the best `ndcg_at_10`.
-4. **Deploy** — create or update a KServe `InferenceService` exposing `/health` and `/embed`.
+4. **Index** — encode title-plus-body chunks with the winner and store a versioned FAISS bundle in MinIO.
+5. **Deploy** — create or update a KServe `InferenceService` and public OpenShift Route exposing the search UI and APIs.
 
 Infrastructure is provisioned in two phases:
 
@@ -47,7 +49,7 @@ stack, reachable local Docker daemon, and outbound access to Hugging Face.
 
 ```
 .
-├── apps/retrieval_poc/     # ZenML pipeline, steps, evaluation, KServe deployment, FastAPI server
+├── apps/retrieval_poc/       # Separated pipeline, retrieval, infrastructure, and search-app packages
 ├── deploy/helm/              # OpenShift Helm charts (zenml-server, zenml-stack)
 ├── scripts/                  # Bash wrappers; lib/ holds shared helpers
 ├── deployment.env.example    # Template for deployment.env (copy, chmod 600, customize)
@@ -60,10 +62,10 @@ stack, reachable local Docker daemon, and outbound access to Hugging Face.
 | Goal | Primary files |
 | --- | --- |
 | Add or change embedding candidates | `apps/retrieval_poc/config.py` |
-| Change evaluation metrics or selection logic | `apps/retrieval_poc/evaluation.py`, `apps/retrieval_poc/steps.py` |
-| Change pipeline parallelism, Docker build, or step resources | `apps/retrieval_poc/pipeline.py` |
-| Change KServe deployment manifest | `apps/retrieval_poc/deployment.py` |
-| Change serving API | `apps/retrieval_poc/server.py` |
+| Change dataset, chunking, metrics, or indexing | `apps/retrieval_poc/retrieval/` |
+| Change ZenML steps or pipeline runtime | `apps/retrieval_poc/pipeline/` |
+| Change MinIO/KServe/OpenShift adapters | `apps/retrieval_poc/infrastructure/` |
+| Change search API or UI | `apps/retrieval_poc/search_app/` |
 | Change pipeline CLI/env overrides | `apps/retrieval_poc/__main__.py` |
 | Change OpenShift workload infra | `deploy/helm/zenml-stack/` |
 | Change ZenML server / MySQL | `deploy/helm/zenml-server/` |
@@ -92,7 +94,7 @@ just validate-stack
 # Run the example pipeline (refreshes credentials first)
 just run-pipeline
 
-# Validate deployed KServe model
+# Validate deployed KServe search application
 just validate-model
 
 # Teardown (stack first, then server)
@@ -108,19 +110,29 @@ make helm-lint
 make helm-template
 ```
 
-There is **no automated test suite** and **no CI workflow** in this repo. Validate
-changes with `make helm-lint` for chart edits and, when a cluster is available,
-the `just validate*` and `just run-pipeline` flow.
+There is a small retrieval contract test suite but **no CI workflow**. Run
+`python -m pytest -q apps/tests/test_retrieval.py`, use `make helm-lint` for
+chart edits, and, when a cluster is available, use the `just validate*` and
+`just run-pipeline` flow.
 
 ## Architecture constraints
 
 Keep these in mind before proposing changes:
 
 - **ZenML dynamic pipeline** — candidate evaluations fan out with `.submit()` and
-  converge on selection/deployment. Max parallel steps default to 3.
+  converge on selection, indexing, and deployment. Max parallel steps default to 3.
 - **No committed Dockerfile** — images are built by ZenML at pipeline runtime via
-  `DockerSettings` in `pipeline.py`. The same image is reused for KServe, started
-  with Uvicorn on `apps.retrieval_poc.server:app`.
+  `DockerSettings` in `pipeline/definition.py`. The same image is reused for
+  KServe, started with Uvicorn on `apps.retrieval_poc.search_app.app:app`.
+- **Single dependency source** — runtime packages live in `apps/pyproject.toml`;
+  do not add a duplicate requirements list to the pipeline definition.
+- **Shared chunks** — all candidates and the winning FAISS index use the same
+  deterministic title-plus-body word chunks so evaluation matches serving.
+- **Versioned bundle** — `index.faiss`, `chunks.json`, and `manifest.json` are
+  stored in MinIO under a content digest and downloaded by a KServe init container.
+- **Explicit ZenML source root** — `apps/retrieval_poc/__main__.py` sets the
+  repository root before importing the pipeline so generated images retain the
+  `apps.retrieval_poc` package hierarchy.
 - **CPU-only** — PyTorch CPU backend is configured in pipeline Docker settings.
 - **Ephemeral pod caches** — Hugging Face and Torch caches use `/tmp` paths.
 - **Credential lifetime** — Kubernetes, registry, and MLflow tokens default to 24h.
@@ -148,25 +160,28 @@ Default namespaces: `zenml` (server), `zenml-workloads` (pipeline pods, MinIO, K
 
 - **Python 3.11+**, type hints, `from __future__ import annotations`.
 - Package layout: import as `apps.retrieval_poc.*` from the repo root.
-- ZenML steps live in `steps.py`; pure logic belongs in `evaluation.py`, `dataset.py`,
-  `config.py`, and `deployment.py`.
+- ZenML steps live in `pipeline/steps.py`; pure retrieval logic belongs under
+  `retrieval/`; cluster/storage adapters belong under `infrastructure/`; FastAPI
+  and static assets belong under `search_app/`.
 - `@step(enable_cache=False)` for evaluation and deployment; dataset prep may cache.
 - Evaluation steps use `runtime="isolated"` and log to MLflow (`experiment_tracker=True`).
 - Selection metric default: `ndcg_at_10` in `select_best_model`.
 - Keep pipeline parameters wired through `__main__.py` env vars when exposing runtime
-  overrides (`NUM_QUERIES`, `CORPUS_SIZE`, `TOP_K`, `SEED`, `MODEL_SERVING_NAME`,
-  `MODEL_SERVING_TIMEOUT`).
+  overrides (`NUM_QUERIES`, `CORPUS_SIZE`, `TOP_K`, `SEED`, `QUERY_SPLIT`,
+  `MODEL_SERVING_NAME`, `MODEL_SERVING_TIMEOUT`).
 
 When adding a candidate model in `config.py`, set `query_prefix` / `document_prefix`
 when the model requires them (see existing BGE and E5 entries).
 
-When changing Docker/runtime behavior, update **both** `pipeline.py` (`DockerSettings`,
-`KubernetesOrchestratorSettings`) and, if needed, `deployment.py` env vars for the
-KServe container.
+When changing Docker/runtime behavior, update **both** `pipeline/definition.py`
+(`DockerSettings`, `KubernetesOrchestratorSettings`) and, if needed,
+`infrastructure/kserve.py` env vars for the KServe container.
 
 ### Bash (`scripts/`)
 
 - `set -euo pipefail`; entry scripts set `SCRIPT_DIR` then source `scripts/lib/init.sh`.
+- Keep scripts compatible with the macOS system Bash 3.2; do not use namerefs
+  (`local -n`) or other Bash 4+ features.
 - Shared helpers live under `scripts/lib/` (`logging.sh`, `commands.sh`, `zenml.sh`, etc.).
 - Configuration is loaded from `deployment.env` (trusted shell input). Do not commit it.
 - Prefer extending existing lib modules over duplicating `oc`/`helm`/`zenml` logic.
@@ -200,17 +215,17 @@ real credentials into tracked files.
 ### Add a new embedding candidate
 
 1. Add a `ModelConfig` entry in `apps/retrieval_poc/config.py`.
-2. If parallelism matters, adjust `PIPELINE_MAX_PARALLEL_STEPS` in `pipeline.py`.
+2. If parallelism matters, adjust `PIPELINE_MAX_PARALLEL_STEPS` in `pipeline/definition.py`.
 3. Run `just run-pipeline` on a bootstrapped cluster.
 
 ### Change benchmark size or random seed
 
 - Prefer env vars (`NUM_QUERIES`, `CORPUS_SIZE`, `SEED`) via `just run-pipeline`.
-- Defaults are in `__main__.py` and step signatures in `steps.py` / `dataset.py`.
+- Defaults are in `__main__.py` and step signatures under `pipeline/` and `retrieval/`.
 
 ### Change the selection metric
 
-- Update `metric=` in `pipeline.py` and ensure `evaluate_model` returns that field.
+- Update `metric=` in `pipeline/definition.py` and ensure `evaluate_model` returns that field.
 - `select_best_model` validates presence of the metric across all results.
 
 ### Debug a failed pipeline run

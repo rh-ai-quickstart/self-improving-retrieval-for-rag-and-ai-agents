@@ -3,6 +3,7 @@ SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 
 DEPLOYMENT_ENV ?= deployment.env
+PIPELINE_ARGS ?=
 
 .PHONY: default help bootstrap bootstrap-server bootstrap-stack validate validate-server validate-stack refresh-stack-credentials run-pipeline validate-model delete delete-stack delete-server helm-lint helm-template
 
@@ -17,8 +18,8 @@ help:
 	@echo "  validate-server           Check Helm, workloads, storage, Services, Route, and HTTP health"
 	@echo "  validate-stack            Check workload resources, registry access, Docker, and ZenML registrations"
 	@echo "  refresh-stack-credentials Refresh Kubernetes, registry, and MLflow credentials"
-	@echo "  run-pipeline              Refresh credentials, then submit the retrieval model evaluation pipeline"
-	@echo "  validate-model            Check that the selected KServe model is ready and returns an embedding"
+	@echo "  run-pipeline              Evaluate models, index the winner, and deploy search (PIPELINE_ARGS=--smoke for a fast run)"
+	@echo "  validate-model            Check the KServe search UI and APIs"
 	@echo "  delete                    Remove stack first, then server"
 	@echo "  delete-stack              Remove ZenML stack registrations and the dedicated workload project"
 	@echo "  delete-server             Remove the ZenML server, Route, persistent MySQL database, and PVCs"
@@ -87,17 +88,17 @@ refresh-stack-credentials:
 	fi
 	./scripts/refresh_zenml_stack_credentials_on_os.sh "$(DEPLOYMENT_ENV)"
 
-# Refresh credentials, then submit the retrieval model evaluation pipeline.
+# Refresh credentials, then evaluate, index, and deploy semantic search.
 run-pipeline: refresh-stack-credentials
 	@if [[ ! -f "$(DEPLOYMENT_ENV)" ]]; then \
 		echo "ERROR: Configuration file not found: $(DEPLOYMENT_ENV)" >&2; \
 		exit 1; \
 	fi
-	set -a; source "$(DEPLOYMENT_ENV)"; set +a; python -m apps.retrieval_poc
+	set -a; source "$(DEPLOYMENT_ENV)"; set +a; python -m apps.retrieval_poc $(PIPELINE_ARGS)
 
-# Check that the selected KServe model is ready and returns an embedding.
+# Check that the selected KServe search app, UI, and APIs are responding.
 validate-model:
-	@echo "==> Validating the deployed retrieval model"
+	@echo "==> Validating the deployed retrieval search application"
 	@echo "    Configuration: $(DEPLOYMENT_ENV)"
 	@if [[ ! -f "$(DEPLOYMENT_ENV)" ]]; then \
 		echo "ERROR: Configuration file not found: $(DEPLOYMENT_ENV)" >&2; \

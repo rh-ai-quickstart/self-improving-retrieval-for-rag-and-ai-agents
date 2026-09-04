@@ -20,11 +20,3 @@ helm_ensure_secrets_file() {
         info "Created ${secrets_file} from secrets.yaml.example."
     fi
 }
-
-helm_append_secrets_values() {
-    local -n helm_args_ref="$1"
-    local chart_path="$2"
-
-    helm_ensure_secrets_file "${chart_path}"
-    helm_args_ref+=(--values "$(helm_secrets_file "${chart_path}")")
-}

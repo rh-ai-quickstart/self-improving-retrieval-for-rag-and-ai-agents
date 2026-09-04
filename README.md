@@ -1,7 +1,7 @@
 # Self-improving retrieval for RAG and AI agents
 
-Evaluate, select, and deploy embedding models for RAG and AI-agent retrieval
-workflows with ZenML on Red Hat OpenShift AI.
+Evaluate embedding models, index technical-support documentation with the
+winner, and deploy a semantic-search UI with ZenML on Red Hat OpenShift AI.
 
 ZenML is an open-source MLOps framework for building portable ML workflows in
 Python. Its stack abstraction separates pipeline code from the infrastructure
@@ -34,6 +34,7 @@ observable workflow.
   - [Pipeline execution](#pipeline-execution)
   - [Credential lifetime](#credential-lifetime)
   - [Production-readiness limitations](#production-readiness-limitations)
+  - [Why add ZenML to OpenShift AI?](#why-add-zenml-to-openshift-ai)
 - [Tags](#tags)
 
 ## Overview
@@ -41,27 +42,46 @@ observable workflow.
 Retrieval quality determines whether RAG applications and AI agents receive
 useful context before generating an answer or taking an action. This quickstart
 demonstrates a repeatable improvement loop that compares embedding models,
-selects the strongest candidate, and makes it available to retrieval workloads.
-It is intended for teams exploring how model evaluation and deployment can be
-automated on OpenShift AI.
+selects the strongest candidate, indexes the corpus with that model, and makes
+the result immediately testable through a semantic-search UI. It is intended
+for teams exploring how retrieval evaluation and deployment can be automated
+on OpenShift AI.
 
 ## Detailed description
 
-RAG systems and agents depend on retrieval to locate relevant documents,
-knowledge, memories, or tool instructions. An embedding model that performs
-well for one corpus might perform poorly for another, while choosing models by
-reputation alone provides little evidence that retrieval is actually improving.
+Consider a large media and IT services provider whose support engineers must
+search thousands of product notes, troubleshooting guides, and known-error
+articles while responding to customer incidents. The same problem can be
+described with different product names, symptoms, and technical vocabulary, so
+keyword search may miss the most useful document. Slow or inconsistent
+retrieval increases resolution time, drives unnecessary escalations, and makes
+valuable operational knowledge difficult to reuse.
 
-This quickstart presents self-improvement as a bounded, observable loop: assess
-several retrieval-model candidates against a labeled benchmark, compare their
-results, select the best performer, and deploy it for use by downstream
-applications. The included benchmark provides a reproducible demonstration;
-teams can adapt the same pattern to their own evaluated queries and documents.
+The business need is therefore broader than putting a search box in front of a
+document collection. The organization needs evidence that its chosen retrieval
+model works for its own questions and content, plus a repeatable way to promote
+a better model and refresh the search experience. Semantic retrieval also forms
+the knowledge-access layer that a future RAG assistant or support agent would
+use to ground its responses.
 
-The result is a working foundation for improving retrieval in RAG applications,
-agent knowledge access, and semantic search. It deliberately focuses on the
-retrieval component and does not include document ingestion, a vector database,
-prompt orchestration, or answer generation.
+This quickstart lets teams explore that workflow by:
+
+- Evaluating multiple embedding models against labeled technical-support questions.
+- Comparing nDCG, recall, precision, MRR, MAP, and runtime measurements.
+- Automatically selecting the best-performing model and encoding the document corpus.
+- Deploying a searchable interface that returns ranked titles, snippets, and scores.
+
+The implementation presents self-improvement as a bounded, observable ZenML
+loop over the TechQA benchmark and IBM Technotes. Teams can adapt the same
+pattern to their own support queries and documentation.
+
+The benchmark uses NVIDIA's Apache-2.0 TechQA-RAG-Eval packaging of the original
+IBM TechQA dataset. It contains 910 questions (600 train and 310 development),
+of which 610 are answerable and 300 intentionally unanswerable. The default
+retrieval evaluation uses all 160 answerable development questions against the
+496 unique Technotes referenced by the answerable dataset rows. Unanswerable
+questions have no relevance judgments, so they are not included in retrieval
+metrics.
 
 ### Architecture diagrams
 
@@ -93,8 +113,8 @@ The current deployment is CPU-only; no GPU is required.
 
 - MinIO: `250m` CPU and `512Mi` memory requested; `1` CPU and
   `1Gi` memory limited.
-- KServe embedding model: `250m` CPU and `512Mi` memory requested;
-  `2` CPU and `2Gi` memory limited.
+- KServe search application: `250m` CPU and `1Gi` memory requested;
+  `2` CPU and `3Gi` memory limited.
 - MySQL: `1Gi` memory limit by default.
 
 **Pipeline execution profile:**
@@ -139,7 +159,7 @@ release.
 
 **Local tools:**
 
-- Bash and `just`.
+- Bash (including the macOS system Bash 3.2) and `just`.
 - Python `3.11` or newer.
 - `oc`, authenticated to the target OpenShift cluster.
 - Helm 3.
@@ -279,22 +299,63 @@ Then execute the example pipeline:
 just run-pipeline
 ```
 
+For a quick end-to-end check before running the larger benchmark:
+
+```bash
+just run-pipeline --smoke
+```
+
+This smoke profile uses 20 queries, 40 documents, and `top_k=20`—two
+corpus-encoding batches per candidate with the current seed and chunking
+defaults. It overrides the three corresponding environment settings for that
+submission only. Use `make run-pipeline PIPELINE_ARGS=--smoke` when using Make.
+
 The command refreshes the short-lived stack credentials, builds and pushes the
 pipeline image, and submits the run to the OpenShift-backed ZenML stack. The
 pipeline evaluates its configured embedding candidates, records the experiment
-in MLflow, selects a winner, and deploys it as a KServe `InferenceService`. The
-command waits for the pipeline to complete and for the model deployment to
-become ready.
+in MLflow, selects a winner, builds and stores a FAISS search bundle in MinIO,
+then deploys it as a KServe `InferenceService` with an OpenShift Route. The
+final ZenML step and pipeline-run metadata contain a clickable link to the UI.
 
-Finally, validate the selected model:
+### Opening the search UI
+
+After the pipeline completes, open its run in the ZenML dashboard, select the
+`deploy_search_app` step, and open **Run Insights → Metadata**. The deployment
+publishes three URI values:
+
+- `search_ui` opens the browser search interface.
+- `search_api_docs` opens the interactive FastAPI documentation.
+- `health_endpoint` returns the deployment readiness information.
+
+![ZenML deployment-step metadata containing links to the search UI, API documentation, and health endpoint](docs/images/zenml_search_app_metadata.png)
+
+*Select `deploy_search_app`, open the Metadata tab, and click `search_ui`.*
+
+The public OpenShift Route opens a small search application. Enter a support
+question, choose the number of results, and select **Search**. Each result shows
+its rank, document title, matching text snippet, similarity score, source
+document, and chunk number. The header above the results also identifies the
+winning embedding model and request latency.
+
+![Technical-support semantic search UI showing ranked IBM Technote results](docs/images/technical_support_search_ui.png)
+
+*The winner-indexed search application returning the relevant ITCAM for
+DataPower Technote.*
+
+If the ZenML link is unavailable, `just validate-model` validates the
+deployment and prints the complete public Route URL. The command requires an
+authenticated `oc` session and uses the namespace and serving name from
+`deployment.env`.
+
+Finally, validate the deployed search application:
 
 ```bash
 just validate-model
 ```
 
-This checks that the `InferenceService` is ready, forwards a local port directly
-to its predictor pod, calls the `/health` and `/embed` endpoints, and verifies
-that the response contains a numeric embedding from the deployed model.
+This checks that the `InferenceService` and Route are ready, forwards a local
+port directly to the predictor pod, loads the HTML UI, submits a query to
+`/search`, and verifies `/embed` as well. The command prints the public UI URL.
 
 Individual checks and operational commands are also available:
 
@@ -303,8 +364,9 @@ Individual checks and operational commands are also available:
 | `just validate-server` | Validates the ZenML server and MySQL deployment |
 | `just validate-stack` | Validates OpenShift resources and ZenML stack registrations |
 | `just refresh-stack-credentials` | Renews Kubernetes, registry, and MLflow credentials |
-| `just run-pipeline` | Refreshes credentials and submits the pipeline |
-| `just validate-model` | Checks the KServe deployment and calls its embedding API |
+| `just run-pipeline` | Refreshes credentials and submits the configured pipeline |
+| `just run-pipeline --smoke` | Refreshes credentials and submits the small smoke profile |
+| `just validate-model` | Checks the KServe search UI, ranked results, and embedding API |
 
 ### Delete
 
@@ -337,11 +399,12 @@ just delete-server
 ├── apps/
 │   ├── pyproject.toml        # Python package and dependency metadata
 │   ├── .dockerignore         # Docker build exclusions for pipeline images
-│   └── retrieval_poc/        # Pipeline, evaluation, deployment, and serving code
-│       ├── pipeline.py       # Dynamic ZenML pipeline and runtime settings
-│       ├── steps.py          # Dataset, evaluation, and selection steps
-│       ├── deployment.py     # KServe InferenceService deployment step
-│       ├── server.py         # Embedding model HTTP server
+│   ├── tests/                # Retrieval/index/search contract tests
+│   └── retrieval_poc/
+│       ├── pipeline/         # Dynamic ZenML definition and decorated steps
+│       ├── retrieval/        # Dataset, chunking, metrics, and FAISS bundle
+│       ├── infrastructure/   # MinIO and KServe/OpenShift adapters
+│       ├── search_app/       # FastAPI API and static browser UI
 │       └── __main__.py       # Pipeline entry point (`python -m apps.retrieval_poc`)
 ├── deploy/
 │   └── helm/
@@ -368,9 +431,9 @@ MinIO, and registers ZenML components with the local CLI.
 - [Red Hat OpenShift AI 3.x supported configurations](https://access.redhat.com/articles/rhoai-supported-configs-3.x)
 - [KServe documentation](https://kserve.github.io/website/)
 - [MLflow documentation](https://www.mlflow.org/docs/latest/)
-- [BEIR SciFact dataset on Hugging Face](https://huggingface.co/datasets/BeIR/scifact)
-- [BEIR benchmark paper](https://arxiv.org/abs/2104.08663)
-- [SciFact paper](https://arxiv.org/abs/2004.14974)
+- [TechQA-RAG-Eval dataset on Hugging Face](https://huggingface.co/datasets/nvidia/TechQA-RAG-Eval)
+- [Original TechQA dataset paper](https://aclanthology.org/2020.acl-main.117/)
+- [IBM Research TechQA publication](https://research.ibm.com/publications/the-techqa-dataset)
 
 ## Technical details
 
@@ -422,18 +485,20 @@ model used by a retrieval system:
 
 *How the pipeline uses ZenML, OpenShift AI, and the supporting services.*
 
-1. Prepare a reproducible retrieval benchmark.
+1. Prepare a reproducible TechQA technical-support retrieval benchmark.
 2. Evaluate the configured embedding candidates in parallel on OpenShift.
 3. Store pipeline artifacts in MinIO and experiment results in MLflow.
 4. Select the strongest candidate according to the pipeline's retrieval-quality
    criterion.
-5. Create or update a CPU-based KServe `InferenceService` for the selected
-   model and wait until it is ready.
+5. Re-encode title-plus-body chunks with the winner and persist a versioned
+   FAISS search bundle in MinIO.
+6. Create or update a CPU-based KServe `InferenceService`, expose its FastAPI UI
+   through an OpenShift Route, and publish clickable URLs in ZenML metadata.
 
-The deployed service exposes `/health` for readiness checks and `/embed` for
-query or document embeddings. This POC demonstrates automated improvement of a
-retrieval component; it does not implement a complete RAG application, vector
-database, or generative model.
+The deployed service exposes `/` for the search UI, `/search` for ranked
+document results, `/health` for readiness, `/embed` for embeddings, and `/docs`
+for its OpenAPI UI. This POC demonstrates automated improvement and delivery of
+a retrieval component; it does not implement a complete generative RAG system.
 
 The ZenML UI exposes both a run timeline and the underlying step graph. In the
 reference run below, the three candidate evaluations execute independently
@@ -470,6 +535,17 @@ local Docker daemon.
 > This deployment is a proof of concept. It is intended for isolated
 > development and demonstration environments, not production use.
 
+The included search application is intentionally a small-scale POC: it loads a
+static, exact FAISS `IndexFlatIP` index into the FastAPI process and rebuilds
+that index through the pipeline rather than supporting continuous ingestion.
+A production information-retrieval system would normally separate the serving
+API from a durable, replicated search or vector service, use an appropriate
+approximate-nearest-neighbor strategy for corpus size and latency targets, and
+add incremental indexing, metadata filtering, access control, observability,
+capacity planning, and controlled index rollouts. The UI demonstrates the
+evaluated model and indexed content; it is not intended as a production search
+platform.
+
 Current limitations include:
 
 - ZenML, MySQL, MinIO, MLflow, and model serving are not configured for high
@@ -489,13 +565,21 @@ services, managed secrets, least-privilege bootstrap identities, restricted
 network exposure, and defined backup, observability, upgrade, and recovery
 procedures.
 
+### Why add ZenML to OpenShift AI?
+
+This quickstart uses OpenShift AI as its workload and model-serving platform
+and ZenML as its ML workflow abstraction and control plane. To understand what
+ZenML adds, why this architecture uses it instead of the KFP-based OpenShift AI
+Pipelines service, and which teams benefit from the combination, see
+[Why add ZenML to Red Hat OpenShift AI?](docs/why-zenml-on-openshift-ai.md).
+
 
 ## Tags
 
 - **Title:** Self-improving retrieval for RAG and AI agents
-- **Description:** Evaluate, select, and deploy embedding models for RAG and AI-agent retrieval workflows with ZenML on Red Hat OpenShift AI.
-- **Industry:** Cross-industry
+- **Description:** Evaluate embedding models and deploy winner-indexed technical-support search with ZenML on Red Hat OpenShift AI.
+- **Industry:** Media and IT Services
 - **Product:** OpenShift AI
-- **Use case:** RAG, MLOps, automation
+- **Use case:** Semantic search over enterprise technical-support documentation
 - **Partner:** N/A
 - **Contributor org:** Red Hat

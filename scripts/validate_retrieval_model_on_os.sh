@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Read-only validation for the KServe model created by the ZenML pipeline.
+# Read-only validation for the KServe search app created by the ZenML pipeline.
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -33,4 +33,4 @@ validate_model_check_inference
 validate_model_call_api
 
 section "Model-serving validation completed"
-success "The ZenML-selected model is deployed by OpenShift AI KServe and responding."
+success "The ZenML-selected search application is deployed and responding at ${ROUTE_URL}."

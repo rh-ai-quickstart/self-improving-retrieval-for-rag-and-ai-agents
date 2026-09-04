@@ -73,17 +73,18 @@ refresh-stack-credentials:
     fi
     ./scripts/refresh_zenml_stack_credentials_on_os.sh "{{deployment_env}}"
 
-# Refresh credentials, then submit the retrieval model evaluation pipeline.
-run-pipeline: refresh-stack-credentials
+# Refresh credentials, then evaluate, index, and deploy semantic search.
+# Pass --smoke for a fast end-to-end run against a small benchmark profile.
+run-pipeline *pipeline_args: refresh-stack-credentials
     @if [[ ! -f "{{deployment_env}}" ]]; then \
         echo "ERROR: Configuration file not found: {{deployment_env}}" >&2; \
         exit 1; \
     fi
-    set -a; source "{{deployment_env}}"; set +a; python -m apps.retrieval_poc
+    set -a; source "{{deployment_env}}"; set +a; python -m apps.retrieval_poc {{pipeline_args}}
 
-# Check that the selected KServe model is ready and returns an embedding.
+# Check that the selected KServe search app, UI, and APIs are responding.
 validate-model:
-    @echo "==> Validating the deployed retrieval model"
+    @echo "==> Validating the deployed retrieval search application"
     @echo "    Configuration: {{deployment_env}}"
     @if [[ ! -f "{{deployment_env}}" ]]; then \
         echo "ERROR: Configuration file not found: {{deployment_env}}" >&2; \

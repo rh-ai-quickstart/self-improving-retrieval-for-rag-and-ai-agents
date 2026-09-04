@@ -4,16 +4,21 @@ zenml_public_secret_id() {
     local secret_name="$1"
 
     "${ZENML_PYTHON:-python}" - "${secret_name}" <<'PY'
+import contextlib
 import sys
 
-from zenml.client import Client
+# ZenML can print global-version warnings to stdout while importing or loading
+# its client. Keep stdout machine-readable because callers capture this UUID.
+with contextlib.redirect_stdout(sys.stderr):
+    from zenml.client import Client
 
 try:
-    secret = Client().get_secret_by_name_and_private_status(
-        name=sys.argv[1],
-        private=False,
-        hydrate=False,
-    )
+    with contextlib.redirect_stdout(sys.stderr):
+        secret = Client().get_secret_by_name_and_private_status(
+            name=sys.argv[1],
+            private=False,
+            hydrate=False,
+        )
 except KeyError:
     raise SystemExit(1)
 
