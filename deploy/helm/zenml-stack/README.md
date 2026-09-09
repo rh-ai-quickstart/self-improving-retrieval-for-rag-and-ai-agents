@@ -38,8 +38,8 @@ chmod 600 deploy/helm/zenml-stack/secrets.yaml
 ```
 
 Leave `minio.rootPassword` empty to auto-generate credentials on first
-install. Existing cluster Secrets are preserved on later upgrades even when
-this field stays empty.
+install. Later upgrades reuse the existing cluster Secret password when the
+Secret is already present.
 
 Registry pull credentials are normally refreshed post-install by
 `make refresh-stack-credentials`. Set `registry.createPullSecret`,

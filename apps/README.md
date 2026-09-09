@@ -142,7 +142,8 @@ search response shape, and embedding endpoint through a local port-forward.
 | `QUERY_SPLIT` | `DEV` | `TRAIN`, `DEV`, or `ALL` |
 | `CHUNK_SIZE_WORDS` | `240` | Words per indexed passage |
 | `CHUNK_OVERLAP_WORDS` | `40` | Words repeated between passages |
-| `MODEL_SERVING_NAME` | `retrieval-embedding` | InferenceService and Route name |
+| `MODEL_SERVING_NAME` | `retrieval-embedding` | InferenceService name |
+| `MODEL_SERVING_ROUTE` | `retrieval-embedding-ui` | OpenShift Route for the search UI |
 | `MODEL_SERVING_TIMEOUT` | `600` | Readiness timeout in seconds |
 
 MinIO image and Secret names are read from the existing deployment environment.

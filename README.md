@@ -319,6 +319,11 @@ final ZenML step and pipeline-run metadata contain a clickable link to the UI.
 
 ### Opening the search UI
 
+The search UI is exposed by an OpenShift Route named `{MODEL_SERVING_NAME}-ui`
+(default `retrieval-embedding-ui`), not the InferenceService name
+(`retrieval-embedding`). KServe on OpenShift removes Routes that share the
+InferenceService name, so the pipeline creates the `-ui` Route deliberately.
+
 After the pipeline completes, open its run in the ZenML dashboard, select the
 `deploy_search_app` step, and open **Run Insights → Metadata**. The deployment
 publishes three URI values:
@@ -331,6 +336,10 @@ publishes three URI values:
 
 *Select `deploy_search_app`, open the Metadata tab, and click `search_ui`.*
 
+Metadata links from older pipeline runs may still point at
+`retrieval-embedding-...` hostnames that no longer resolve. Use the latest run
+or run `just validate-model` to print the admitted Route URL.
+
 The public OpenShift Route opens a small search application. Enter a support
 question, choose the number of results, and select **Search**. Each result shows
 its rank, document title, matching text snippet, similarity score, source
@@ -342,10 +351,18 @@ winning embedding model and request latency.
 *The winner-indexed search application returning the relevant ITCAM for
 DataPower Technote.*
 
+The search UI is published on an OpenShift Route named `{MODEL_SERVING_NAME}-ui`
+(default `retrieval-embedding-ui`), not the KServe `InferenceService` name
+(`retrieval-embedding`). KServe on OpenShift removes Routes that share the
+InferenceService name, so the deploy step uses a separate `-ui` Route. ZenML
+metadata links from older pipeline runs may still point at the previous Route
+name and will not load; use the latest run metadata or `just validate-model` for
+the current URL.
+
 If the ZenML link is unavailable, `just validate-model` validates the
 deployment and prints the complete public Route URL. The command requires an
-authenticated `oc` session and uses the namespace and serving name from
-`deployment.env`.
+authenticated `oc` session and uses `MODEL_SERVING_ROUTE` (and related settings)
+from `deployment.env`.
 
 Finally, validate the deployed search application:
 

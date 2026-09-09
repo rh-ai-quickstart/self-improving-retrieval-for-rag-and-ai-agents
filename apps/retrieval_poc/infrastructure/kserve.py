@@ -72,19 +72,25 @@ def deploy_search_service(
         timeout_seconds=timeout_seconds,
     )
     service_name = _predictor_service_name(namespace, deployment_name)
-    route_body = _route_manifest(deployment_name, namespace, service_name)
-    _apply_custom_object(
+    route_name = _route_name(deployment_name)
+    route_body = _route_manifest(route_name, namespace, service_name)
+    route_action = _apply_custom_object(
         api=custom_api,
         group=ROUTE_GROUP,
         version=ROUTE_VERSION,
         namespace=namespace,
         plural=ROUTE_PLURAL,
-        name=deployment_name,
+        name=route_name,
         body=route_body,
     )
-    ui_url = _wait_for_route(
-        custom_api, namespace, deployment_name, timeout_seconds
+    print(
+        f"OpenShift Route {namespace}/{route_name} {route_action} "
+        f"for Service {service_name}"
     )
+    ui_url = _wait_for_route(
+        custom_api, namespace, route_name, timeout_seconds
+    )
+    _confirm_route(custom_api, namespace, route_name, ui_url)
     internal_url = str(inference.get("status", {}).get("url", ""))
     print(f"Search UI is ready: {ui_url}")
     return {
@@ -278,6 +284,11 @@ def _inference_manifest(
     }
 
 
+def _route_name(deployment_name: str) -> str:
+    """Return a Route name that does not collide with the InferenceService."""
+    return f"{deployment_name}-ui"
+
+
 def _route_manifest(name: str, namespace: str, service: str) -> dict[str, Any]:
     return {
         "apiVersion": f"{ROUTE_GROUP}/{ROUTE_VERSION}",
@@ -292,6 +303,7 @@ def _route_manifest(name: str, namespace: str, service: str) -> dict[str, Any]:
         },
         "spec": {
             "to": {"kind": "Service", "name": service, "weight": 100},
+            "port": {"targetPort": "http1"},
             "tls": {
                 "termination": "edge",
                 "insecureEdgeTerminationPolicy": "Redirect",
@@ -428,6 +440,29 @@ def _wait_for_ready_predictor(
         f"No ready predictor pod for {namespace}/{deployment_name} loaded "
         f"bundle {bundle_digest} within {timeout_seconds}s."
     )
+
+
+def _confirm_route(
+    api: client.CustomObjectsApi,
+    namespace: str,
+    name: str,
+    ui_url: str,
+) -> None:
+    """Fail the deploy step if the Route object is not still present."""
+    route = api.get_namespaced_custom_object(
+        ROUTE_GROUP, ROUTE_VERSION, namespace, ROUTE_PLURAL, name
+    )
+    expected_host = ui_url.removeprefix("https://")
+    hosts = [
+        ingress.get("host")
+        for ingress in route.get("status", {}).get("ingress", [])
+        if ingress.get("host")
+    ]
+    if expected_host not in hosts:
+        raise RuntimeError(
+            f"OpenShift Route {namespace}/{name} is missing admitted host "
+            f"{expected_host}; ingress hosts={hosts!r}"
+        )
 
 
 def _wait_for_route(

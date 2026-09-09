@@ -78,6 +78,7 @@ load_stack_config() {
     MLFLOW_INTEGRATION_CLUSTER_ROLE="${MLFLOW_INTEGRATION_CLUSTER_ROLE:-mlflow-operator-mlflow-integration}"
     MLFLOW_ROLE_BINDING="${MLFLOW_ROLE_BINDING:-zenml-mlflow-integration}"
     MODEL_SERVING_NAME="${MODEL_SERVING_NAME:-retrieval-embedding}"
+    MODEL_SERVING_ROUTE="${MODEL_SERVING_ROUTE:-${MODEL_SERVING_NAME}-ui}"
     MODEL_SERVING_ROLE="${MODEL_SERVING_ROLE:-zenml-kserve-deployer}"
     MODEL_SERVING_ROLE_BINDING="${MODEL_SERVING_ROLE_BINDING:-zenml-kserve-deployer}"
     MODEL_SERVING_TIMEOUT="${MODEL_SERVING_TIMEOUT:-600}"
@@ -99,6 +100,7 @@ load_stack_config() {
     validate_dns_name "MLFLOW_INSTANCE" "${MLFLOW_INSTANCE}"
     validate_dns_name "MLFLOW_ROLE_BINDING" "${MLFLOW_ROLE_BINDING}"
     validate_dns_name "MODEL_SERVING_NAME" "${MODEL_SERVING_NAME}"
+    validate_dns_name "MODEL_SERVING_ROUTE" "${MODEL_SERVING_ROUTE}"
     validate_dns_name "MODEL_SERVING_ROLE" "${MODEL_SERVING_ROLE}"
     validate_dns_name "MODEL_SERVING_ROLE_BINDING" "${MODEL_SERVING_ROLE_BINDING}"
 
