@@ -5,8 +5,9 @@ SHELL := /bin/bash
 DEPLOYMENT_ENV ?= deployment.env
 PIPELINE_ARGS ?=
 
-.PHONY: default help bootstrap bootstrap-server bootstrap-stack validate validate-server validate-stack refresh-stack-credentials run-pipeline validate-model delete delete-stack delete-server helm-lint helm-template
+.PHONY: default help bootstrap bootstrap-server bootstrap-stack validate validate-server validate-stack refresh-stack-credentials run-pipeline run-pipeline-smoke validate-model delete delete-stack delete-server helm-lint helm-template
 
+# List the available project commands.
 default: help
 
 help:
@@ -18,11 +19,14 @@ help:
 	@echo "  validate-server           Check Helm, workloads, storage, Services, Route, and HTTP health"
 	@echo "  validate-stack            Check workload resources, registry access, Docker, and ZenML registrations"
 	@echo "  refresh-stack-credentials Refresh Kubernetes, registry, and MLflow credentials"
-	@echo "  run-pipeline              Evaluate models, index the winner, and deploy search (PIPELINE_ARGS=--smoke for a fast run)"
-	@echo "  validate-model            Check the KServe search UI and APIs"
+	@echo "  run-pipeline              Evaluate, index, and deploy semantic search (PIPELINE_ARGS=--smoke for a fast run)"
+	@echo "  run-pipeline-smoke        Fast end-to-end run with the smoke benchmark profile"
+	@echo "  validate-model            Check the KServe search app, UI, and APIs"
 	@echo "  delete                    Remove stack first, then server"
 	@echo "  delete-stack              Remove ZenML stack registrations and the dedicated workload project"
 	@echo "  delete-server             Remove the ZenML server, Route, persistent MySQL database, and PVCs"
+	@echo "  helm-lint                 Lint the OpenShift Helm charts"
+	@echo "  helm-template             Render the OpenShift Helm charts locally"
 
 # Start phase 1. Activate the server and authenticate the CLI before phase 2.
 bootstrap: bootstrap-server
@@ -89,12 +93,16 @@ refresh-stack-credentials:
 	./scripts/refresh_zenml_stack_credentials_on_os.sh "$(DEPLOYMENT_ENV)"
 
 # Refresh credentials, then evaluate, index, and deploy semantic search.
+# Pass PIPELINE_ARGS=--smoke for a fast end-to-end run against a small benchmark profile.
 run-pipeline: refresh-stack-credentials
 	@if [[ ! -f "$(DEPLOYMENT_ENV)" ]]; then \
 		echo "ERROR: Configuration file not found: $(DEPLOYMENT_ENV)" >&2; \
 		exit 1; \
 	fi
 	set -a; source "$(DEPLOYMENT_ENV)"; set +a; python -m apps.retrieval_poc $(PIPELINE_ARGS)
+
+run-pipeline-smoke:
+	$(MAKE) run-pipeline PIPELINE_ARGS=--smoke
 
 # Check that the selected KServe search app, UI, and APIs are responding.
 validate-model:
