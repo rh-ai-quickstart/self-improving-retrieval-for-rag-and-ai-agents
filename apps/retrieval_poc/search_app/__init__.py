@@ -1,0 +1,2 @@
+"""FastAPI semantic-search application."""
+

@@ -1,137 +1,164 @@
-# Retrieval model selection application
+# TechQA retrieval pipeline and search application
 
-This package implements a ZenML pipeline that evaluates embedding models on the
-BEIR SciFact benchmark, selects the best candidate for dense retrieval, and
-deploys it to OpenShift AI KServe. It is the Python application at the center of
-the repository's self-improving retrieval proof of concept.
+This package implements the application layer of the quickstart. A ZenML
+pipeline evaluates embedding models on TechQA, selects the strongest candidate,
+builds a FAISS index with that winner, and deploys a searchable FastAPI UI to
+OpenShift AI KServe.
 
-The pipeline does not implement a full RAG stack. It focuses on the retrieval
-component: benchmark preparation, parallel model evaluation, winner selection,
-and serving the chosen model through a small embedding HTTP API.
+It is a retrieval POC rather than a full RAG stack: there is no generative model
+or answer synthesis. Users search technical-support documents and receive
+ranked titles, matching text snippets, and similarity scores.
 
 ## Layout
 
 ```
 apps/
-├── pyproject.toml          # Package metadata and dependencies
-├── .dockerignore           # Exclusions for ZenML-generated container builds
+├── pyproject.toml
+├── tests/test_retrieval.py
 └── retrieval_poc/
-    ├── __main__.py         # Entry point: python -m apps.retrieval_poc
-    ├── pipeline.py         # ZenML pipeline definition and runtime settings
-    ├── steps.py            # Dataset, evaluation, and selection steps
-    ├── deployment.py       # KServe InferenceService deployment step
-    ├── server.py           # FastAPI embedding service (/health, /embed)
-    ├── config.py           # Candidate embedding models
-    ├── dataset.py          # SciFact benchmark loading
-    └── evaluation.py       # Retrieval metrics (for example nDCG@10)
+    ├── __main__.py                 # Environment-to-pipeline entry point
+    ├── config.py                   # Candidate model definitions
+    ├── pipeline/
+    │   ├── definition.py           # Dynamic pipeline and image settings
+    │   └── steps.py                # ZenML-decorated workflow steps
+    ├── retrieval/
+    │   ├── dataset.py              # TechQA loading and deterministic subset
+    │   ├── chunking.py             # Shared title-plus-body chunks
+    │   ├── evaluation.py           # Document-level IR metrics
+    │   └── indexing.py             # FAISS bundle build/load contract
+    ├── infrastructure/
+    │   ├── bundle_store.py         # Versioned bundle persistence in MinIO
+    │   └── kserve.py               # InferenceService and Route adapter
+    └── search_app/
+        ├── app.py                  # FastAPI endpoints and UI hosting
+        ├── engine.py               # SentenceTransformer + FAISS runtime
+        ├── schemas.py              # API contracts
+        └── static/                 # HTML, CSS, and browser JavaScript
 ```
 
-Run the pipeline from the repository root after bootstrapping the ZenML server
-and remote stack:
-
-```bash
-make run-pipeline
-# or: just run-pipeline
-```
-
-That refreshes stack credentials and submits `python -m apps.retrieval_poc`.
+The dependency direction is deliberate: pipeline steps orchestrate pure
+retrieval and infrastructure adapters; the search app imports only retrieval
+contracts. Retrieval code does not import FastAPI, and the serving application
+does not import ZenML.
 
 ## Pipeline flow
 
-1. **Prepare benchmark** — load a reproducible SciFact subset once as a shared
-   artifact.
-2. **Evaluate candidates** — run up to three embedding models in parallel on
-   OpenShift; log metrics to MLflow.
-3. **Select winner** — pick the model with the best `ndcg_at_10` score.
-4. **Deploy** — create or update a KServe `InferenceService` that serves the
-   winning model through `server.py`.
+1. Load answerable TechQA development questions and a reproducible IBM
+   Technote corpus.
+2. Split each document into deterministic overlapping word chunks, prepending
+   the document title to every chunk.
+3. Evaluate three candidate models concurrently. Chunk scores are collapsed by
+   document before nDCG@10, Recall@K, Precision@10, MRR@10, and MAP@10 are
+   calculated.
+4. Select the best model by `ndcg_at_10`.
+5. Re-encode the shared chunks with the winner and build a normalized
+   `faiss.IndexFlatIP` index.
+6. Store a content-addressed ZIP bundle (`index.faiss`, `chunks.json`, and
+   `manifest.json`) in the active MinIO artifact store.
+7. Deploy the same generated pipeline image to KServe. An init container copies
+   the selected bundle from MinIO, and an OpenShift Route exposes the UI.
 
-Default candidates are defined in `retrieval_poc/config.py`:
-
-- `sentence-transformers/all-MiniLM-L6-v2`
-- `BAAI/bge-small-en-v1.5`
-- `intfloat/e5-small-v2`
-
-## Container images
-
-There is **no committed `Dockerfile`** in this repository. Container images are
-built by ZenML at pipeline runtime using the local image builder registered
-during stack bootstrap (`openshift-local`, flavor `local`).
-
-Build behavior is declared in `retrieval_poc/pipeline.py` through
-`DockerSettings`:
-
-- **Requirements** — step dependencies such as `sentence-transformers`, `torch`,
-  and `fastapi`.
-- **Project install** — `pyproject_path="apps/pyproject.toml"` and
-  `local_project_install_command="uv pip install --no-deps ./apps"` so
-  `apps.retrieval_poc` is importable inside the image.
-- **CPU PyTorch** — `python_package_installer_args={"torch-backend": "cpu"}`.
-- **Runtime caches** — Hugging Face and Torch cache paths under `/tmp` for
-  ephemeral OpenShift pods.
-- **Docker ignore** — `DockerBuildConfig(dockerignore="apps/.dockerignore")`.
-
-ZenML generates the underlying Dockerfile, builds the image with your local
-Docker daemon, and pushes it to the OpenShift integrated registry configured in
-the active ZenML stack. The deployment step reuses that same image for the
-KServe predictor, which starts Uvicorn directly rather than through ZenML's
-normal step entrypoint. Installing the local project in the image is what makes
-`apps.retrieval_poc.server` available in both execution modes.
-
-### `apps/.dockerignore`
-
-This file keeps secrets, local virtual environments, and repository metadata out
-of pipeline images. It is referenced by the pipeline's `DockerBuildConfig`, not
-by a hand-written Dockerfile.
-
-Typical exclusions include `deployment.env`, `.venv`, `__pycache__`, `.zen`,
-and `.git`.
-
-## Serving API
-
-After deployment, the KServe model exposes:
-
-| Endpoint   | Purpose                                      |
-| ---------- | ---------------------------------------------- |
-| `/health`  | Readiness check used by validation scripts     |
-| `/embed`   | Returns embeddings for query or document text |
-
-The server reads `MODEL_ID` from the environment and optional prefix settings
-for models that require query/document formatting.
-
-Validate a deployed model from the repository root:
+Run it from the repository root:
 
 ```bash
-make validate-model
+just run-pipeline
 ```
+
+For a fast end-to-end validation, use the smoke profile:
+
+```bash
+just run-pipeline --smoke
+```
+
+The smoke profile evaluates 20 queries against 40 documents with `top_k=20`.
+With the current TechQA seed and chunking defaults, this produces 110 searchable
+chunks, or two corpus-encoding batches per candidate. It intentionally overrides
+`NUM_QUERIES`, `CORPUS_SIZE`, and `TOP_K`; omit `--smoke` for the configured/full
+benchmark. The equivalent Make command is
+`make run-pipeline PIPELINE_ARGS=--smoke`.
+
+The final deployment step adds clickable `search_ui`, `search_api_docs`, and
+`health_endpoint` links to both the step and pipeline-run metadata in ZenML.
+To open the application, view the completed run, select `deploy_search_app`,
+open **Run Insights → Metadata**, and click `search_ui`. `just validate-model`
+provides a second path: it checks the deployment and prints the public URL.
+
+![ZenML metadata containing the deployed search application links](../docs/images/zenml_search_app_metadata.png)
+
+## Container dependencies
+
+There is no committed Dockerfile. ZenML generates and pushes the image using
+the settings in `pipeline/definition.py`. `apps/pyproject.toml` is the single
+dependency source for both local installation and the generated image. It
+includes Sentence Transformers, CPU PyTorch, FAISS, FastAPI, Kubernetes, and
+the ZenML integrations used for MLflow and S3/MinIO.
+
+ZenML exports the project dependencies with `uv pip compile` for the reference
+x86_64 manylinux target and explicitly selects the CPU PyTorch backend. This
+prevents CUDA-only transitive packages from entering the generated image.
+
+The project itself is installed with:
+
+```text
+uv pip install --no-deps ./apps
+```
+
+This makes the static UI and `apps.retrieval_poc.search_app` importable when
+KServe starts Uvicorn directly. The entry point sets the repository source root
+before importing the decorated pipeline so ZenML preserves the package layout.
+
+## Search API and UI
+
+The Route root (`/`) is the browser UI. The service also exposes:
+
+![Technical-support search UI with ranked IBM Technote results](../docs/images/technical_support_search_ui.png)
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | Model, bundle, document, and chunk readiness |
+| `POST /search` | Ranked document titles, snippets, and cosine scores |
+| `POST /embed` | Normalized query/document/raw embeddings |
+| `GET /docs` | Interactive OpenAPI documentation |
+
+Example request:
+
+```bash
+curl -sS -H 'Content-Type: application/json' \
+  -d '{"query":"How do I troubleshoot a failed database connection?","top_k":5}' \
+  https://<search-route>/search
+```
+
+`just validate-model` checks the InferenceService, admitted Route, HTML UI,
+search response shape, and embedding endpoint through a local port-forward.
 
 ## Configuration
 
-Pipeline parameters can be overridden with environment variables when submitting
-the run (see `retrieval_poc/__main__.py`):
+| Variable | Default | Description |
+| --- | --- | --- |
+| `NUM_QUERIES` | `160` | Benchmark query count |
+| `CORPUS_SIZE` | `500` | Maximum Technote corpus size (496 available) |
+| `TOP_K` | `50` | Document retrieval depth for evaluation |
+| `SEED` | `42` | Deterministic subset seed |
+| `QUERY_SPLIT` | `DEV` | `TRAIN`, `DEV`, or `ALL` |
+| `CHUNK_SIZE_WORDS` | `240` | Words per indexed passage |
+| `CHUNK_OVERLAP_WORDS` | `40` | Words repeated between passages |
+| `MODEL_SERVING_NAME` | `retrieval-embedding` | InferenceService name |
+| `MODEL_SERVING_ROUTE` | `retrieval-embedding-ui` | OpenShift Route for the search UI |
+| `MODEL_SERVING_TIMEOUT` | `600` | Readiness timeout in seconds |
 
-| Variable               | Default               | Description                    |
-| ---------------------- | --------------------- | ------------------------------ |
-| `NUM_QUERIES`          | `200`                 | Benchmark query count          |
-| `CORPUS_SIZE`          | `2500`                | Benchmark corpus size          |
-| `TOP_K`                | `50`                  | Retrieval depth for evaluation |
-| `SEED`                 | `42`                  | Random seed                    |
-| `MODEL_SERVING_NAME`   | `retrieval-embedding` | KServe InferenceService name   |
-| `MODEL_SERVING_TIMEOUT`| `600`                 | Deployment wait timeout (s)    |
+MinIO image and Secret names are read from the existing deployment environment.
+The in-cluster MinIO endpoint defaults to `http://minio:9000`.
 
-Infrastructure settings (namespaces, stack components, storage, and credentials)
-live in the repository-root `deployment.env`, not in this package.
+## Local checks
 
-## Local development
-
-Install the package in a virtual environment from the repository root:
+Install application and test dependencies, then run the small pure-logic suite:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ./apps
+python -m venv env
+source env/bin/activate
+pip install -e 'apps[dev]'
+python -m pytest -q apps/tests/test_retrieval.py
 ```
 
-You still need an activated ZenML server, authenticated CLI, and bootstrapped
-remote stack before submitting pipeline runs. See the root `README.md` for the
-full OpenShift bootstrap workflow.
+Submitting or validating the remote deployment still requires an authenticated
+ZenML server and the bootstrapped OpenShift stack described in the root README.

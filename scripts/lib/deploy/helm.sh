@@ -180,11 +180,12 @@ deploy_mysql_is_ready() {
     [[ "${ready:-0}" -ge 1 && "${ready:-0}" -ge "${desired:-1}" ]]
 }
 
-deploy_build_server_helm_args() {
-    local -n helm_args_ref="$1"
-    local zenml_enabled="$2"
+DEPLOY_SERVER_HELM_ARGS=()
 
-    helm_args_ref=(
+deploy_build_server_helm_args() {
+    local zenml_enabled="$1"
+
+    DEPLOY_SERVER_HELM_ARGS=(
         upgrade --install "${ZENML_RELEASE}" "${SERVER_CHART_PATH}"
         --namespace "${ZENML_NAMESPACE}"
         --values "${DEPLOY_HELM_VALUES}"
@@ -208,16 +209,18 @@ deploy_build_server_helm_args() {
         --set "route.serviceName=${ZENML_SERVICE}"
     )
 
-    helm_append_secrets_values "$1" "${SERVER_CHART_PATH}"
+    DEPLOY_SERVER_HELM_ARGS+=(
+        --values "$(helm_secrets_file "${SERVER_CHART_PATH}")"
+    )
 
     if [[ -n "${ZENML_ROUTE_HOST}" ]]; then
-        helm_args_ref+=(--set-string "route.host=${ZENML_ROUTE_HOST}")
+        DEPLOY_SERVER_HELM_ARGS+=(--set-string "route.host=${ZENML_ROUTE_HOST}")
     fi
     if [[ -n "${ZENML_DB_PASSWORD}" ]]; then
-        helm_args_ref+=(--set-string "database.password=${ZENML_DB_PASSWORD}")
+        DEPLOY_SERVER_HELM_ARGS+=(--set-string "database.password=${ZENML_DB_PASSWORD}")
     fi
     if [[ -n "${ZENML_DB_ROOT_PASSWORD}" ]]; then
-        helm_args_ref+=(--set-string "database.rootPassword=${ZENML_DB_ROOT_PASSWORD}")
+        DEPLOY_SERVER_HELM_ARGS+=(--set-string "database.rootPassword=${ZENML_DB_ROOT_PASSWORD}")
     fi
 }
 
@@ -257,8 +260,6 @@ PY
 
 deploy_install_helm() {
     local openshift_values="$1"
-    local -a helm_args
-
     DEPLOY_HELM_VALUES="${openshift_values}"
     deploy_update_chart_dependencies
     deploy_recover_stuck_helm_release
@@ -279,12 +280,13 @@ deploy_install_helm() {
 
     # shellcheck source=lib/helm/secrets.sh
     source "${SCRIPT_DIR}/lib/helm/secrets.sh"
+    helm_ensure_secrets_file "${SERVER_CHART_PATH}"
 
     if ! deploy_mysql_is_ready; then
         section "Installing MySQL before the ZenML server"
         info "Pass 1: zenml.enabled=false so the db-migration Job cannot run before Service ${ZENML_DB_SERVICE} exists."
-        deploy_build_server_helm_args helm_args false
-        run_logged helm "${helm_args[@]}" --wait --timeout 10m
+        deploy_build_server_helm_args false
+        run_logged helm "${DEPLOY_SERVER_HELM_ARGS[@]}" --wait --timeout 10m
         success "MySQL Helm resources are installed."
     else
         info "MySQL Service ${ZENML_DB_SERVICE} is already ready; skipping the MySQL-only Helm pass."
@@ -294,8 +296,8 @@ deploy_install_helm() {
 
     section "Installing the ZenML server"
     info "Pass 2: zenml.enabled=true. db-migration can resolve ${ZENML_DB_SERVICE} because MySQL is Ready."
-    deploy_build_server_helm_args helm_args true
-    run_logged helm "${helm_args[@]}" --wait --timeout 10m
+    deploy_build_server_helm_args true
+    run_logged helm "${DEPLOY_SERVER_HELM_ARGS[@]}" --wait --timeout 10m
 
     success "Helm installation/upgrade completed."
 }

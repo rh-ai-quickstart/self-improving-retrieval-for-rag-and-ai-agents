@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TechQA Semantic Search</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="eyebrow">MEDIA &amp; IT SERVICES · MLOPS POC</span>
+        <h1>Technical-support search</h1>
+        <p>Search IBM Technotes from TechQA using the embedding model selected by the latest ZenML evaluation run.</p>
+      </header>
+
+      <form id="search-form">
+        <label for="query">What do you need help with?</label>
+        <div class="search-row">
+          <input id="query" name="query" type="search" required autofocus
+            placeholder="e.g. How do I troubleshoot a failed database connection?">
+          <select id="top-k" aria-label="Number of results">
+            <option value="5">5 results</option>
+            <option value="10">10 results</option>
+            <option value="20">20 results</option>
+          </select>
+          <button type="submit">Search</button>
+        </div>
+      </form>
+
+      <section class="status" aria-live="polite">
+        <span id="status">Ready to search</span>
+        <a href="/docs">API docs</a>
+      </section>
+      <section id="results" class="results"></section>
+      <details id="raw-panel" hidden>
+        <summary>Raw response JSON</summary>
+        <pre id="raw-json"></pre>
+      </details>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
+

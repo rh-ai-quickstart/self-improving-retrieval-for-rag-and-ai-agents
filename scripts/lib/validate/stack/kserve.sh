@@ -35,6 +35,11 @@ validate_stack_check_kserve() {
                     fail "Orchestrator service account cannot ${verb} KServe InferenceServices."
                 fi
             done
+            if [[ "$(oc auth can-i create routes.route.openshift.io --as="system:serviceaccount:${ZENML_WORKLOAD_NAMESPACE}:${ZENML_ORCHESTRATOR_SA}" -n "${ZENML_WORKLOAD_NAMESPACE}" 2>/dev/null)" == yes ]]; then
+                pass "Orchestrator service account can create the search UI Route."
+            else
+                fail "Orchestrator service account cannot create OpenShift Routes."
+            fi
         fi
     fi
 }

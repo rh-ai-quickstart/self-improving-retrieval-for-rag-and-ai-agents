@@ -64,7 +64,8 @@ bootstrap_install_stack_chart() {
         --set "registry.imageStreamName=zenml"
     )
 
-    helm_append_secrets_values helm_args "${STACK_CHART_PATH}"
+    helm_ensure_secrets_file "${STACK_CHART_PATH}"
+    helm_args+=(--values "$(helm_secrets_file "${STACK_CHART_PATH}")")
 
     if [[ -n "${MINIO_ROOT_PASSWORD}" ]]; then
         helm_args+=(--set-string "minio.rootPassword=${MINIO_ROOT_PASSWORD}")
@@ -105,7 +106,11 @@ bootstrap_wait_for_kserve() {
         --as="system:serviceaccount:${ZENML_WORKLOAD_NAMESPACE}:${ZENML_ORCHESTRATOR_SA}" \
         -n "${ZENML_WORKLOAD_NAMESPACE}")" == "yes" ]] \
         || die "${ZENML_ORCHESTRATOR_SA} cannot create KServe InferenceServices in ${ZENML_WORKLOAD_NAMESPACE}."
-    success "OpenShift AI KServe is managed and the orchestrator can deploy InferenceServices."
+    [[ "$(oc auth can-i create routes.route.openshift.io \
+        --as="system:serviceaccount:${ZENML_WORKLOAD_NAMESPACE}:${ZENML_ORCHESTRATOR_SA}" \
+        -n "${ZENML_WORKLOAD_NAMESPACE}")" == "yes" ]] \
+        || die "${ZENML_ORCHESTRATOR_SA} cannot create the search UI Route in ${ZENML_WORKLOAD_NAMESPACE}."
+    success "OpenShift AI KServe is managed and the orchestrator can deploy InferenceServices and Routes."
 }
 
 bootstrap_wait_for_mlflow() {

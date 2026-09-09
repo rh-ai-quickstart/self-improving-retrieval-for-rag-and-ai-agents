@@ -30,5 +30,14 @@ validate_model_check_inference() {
     [[ "${PREDICTOR_PORT}" =~ ^[1-9][0-9]*$ ]] \
         || die "Predictor pod ${PREDICTOR_POD} does not declare a valid kserve-container/http1 port."
 
+    ROUTE_HOST="$(oc get route "${MODEL_SERVING_ROUTE}" \
+        -n "${ZENML_WORKLOAD_NAMESPACE}" \
+        -o jsonpath='{.status.ingress[0].host}' \
+        2>/dev/null || true)"
+    [[ -n "${ROUTE_HOST}" ]] \
+        || die "Search UI Route ${ZENML_WORKLOAD_NAMESPACE}/${MODEL_SERVING_ROUTE} is missing or not admitted."
+    ROUTE_URL="https://${ROUTE_HOST}"
+
     success "InferenceService is Ready with model ${MODEL_ID}."
+    success "Search UI Route is admitted at ${ROUTE_URL}."
 }
