@@ -55,18 +55,6 @@ on OpenShift AI.
 
 By implementing this ZenML-powered self-improving retrieval pipeline, technical support engineers gain faster, more accurate access to the right knowledge articles, even when customers describe problems using different terminology, product names, or symptoms that keyword search would miss. The automated evaluation loop removes guesswork from model selection by benchmarking embedding models against real support queries, so teams can confidently deploy the retrieval approach that actually works best for their content. This translates directly to shorter resolution times, fewer unnecessary escalations, and better reuse of hard-won operational knowledge. Because the pipeline is repeatable and observable, retrieval quality improves over time rather than degrading as documentation grows, and the same semantic search layer becomes the ready-made foundation for a future RAG assistant or AI-powered support agent.
 
-The implementation presents self-improvement as a bounded, observable ZenML
-loop over the TechQA benchmark and IBM Technotes. Teams can adapt the same
-pattern to their own support queries and documentation.
-
-The benchmark uses NVIDIA's Apache-2.0 TechQA-RAG-Eval packaging of the original
-IBM TechQA dataset. It contains 910 questions (600 train and 310 development),
-of which 610 are answerable and 300 intentionally unanswerable. The default
-retrieval evaluation uses all 160 answerable development questions against the
-496 unique Technotes referenced by the answerable dataset rows. Unanswerable
-questions have no relevance judgments, so they are not included in retrieval
-metrics.
-
 ### Architecture diagrams
 
 The component view separates the shared OpenShift capabilities, OpenShift
@@ -541,6 +529,18 @@ A production adaptation should use supported highly available stateful
 services, managed secrets, least-privilege bootstrap identities, restricted
 network exposure, and defined backup, observability, upgrade, and recovery
 procedures.
+
+The implementation presents self-improvement as a bounded, observable ZenML
+loop over the TechQA benchmark and IBM Technotes. Teams can adapt the same
+pattern to their own support queries and documentation.
+
+The benchmark uses NVIDIA's Apache-2.0 TechQA-RAG-Eval packaging of the original
+IBM TechQA dataset. It contains 910 questions (600 train and 310 development),
+of which 610 are answerable and 300 intentionally unanswerable. The default
+retrieval evaluation uses all 160 answerable development questions against the
+496 unique Technotes referenced by the answerable dataset rows. Unanswerable
+questions have no relevance judgments, so they are not included in retrieval
+metrics.
 
 ### Why add ZenML to OpenShift AI?
 
