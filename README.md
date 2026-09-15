@@ -98,7 +98,7 @@ components, local tooling, and required OpenShift permissions described below.
 
 **Local tools:**
 
-- Bash (including the macOS system Bash 3.2) and `just`.
+- Bash (including the macOS system Bash 3.2) and `make`.
 - Python `3.11` or newer.
 - `oc`, authenticated to the target OpenShift cluster.
 - Helm 3.
@@ -159,7 +159,7 @@ python -m pip install 'zenml[server]==0.96.2'
 python -m pip install -e apps/
 ```
 
-`just bootstrap-stack` installs the S3 and MLflow integrations through
+`make bootstrap-stack` installs the S3 and MLflow integrations through
 `zenml integration install s3 mlflow -y`. ZenML therefore controls the client
 dependency sets used for the MinIO artifact store and MLflow experiment
 tracking.
@@ -195,7 +195,7 @@ local CLI authenticated before the remote stack can be registered.
 2. Deploy the ZenML server and its persistent MySQL database:
 
    ```bash
-   just bootstrap-server
+   make bootstrap-server
    ```
 
 3. Open the ZenML Route printed by the command and complete the initial browser
@@ -210,14 +210,14 @@ local CLI authenticated before the remote stack can be registered.
    OpenShift workload stack:
 
    ```bash
-   just bootstrap-stack
+   make bootstrap-stack
    ```
 
 To use a configuration other than `deployment.env`, pass it to any recipe
 through `DEPLOYMENT_ENV`:
 
 ```bash
-DEPLOYMENT_ENV=deployment.lab.env just bootstrap-server
+DEPLOYMENT_ENV=deployment.lab.env make bootstrap-server
 ```
 
 ### Validating the deployment
@@ -225,7 +225,7 @@ DEPLOYMENT_ENV=deployment.lab.env just bootstrap-server
 First, validate both infrastructure deployment phases:
 
 ```bash
-just validate
+make validate
 ```
 
 The validation checks the server, routes, persistent storage, workload
@@ -235,13 +235,13 @@ ZenML registrations without intentionally modifying them.
 Then execute the example pipeline:
 
 ```bash
-just run-pipeline
+make run-pipeline
 ```
 
 For a quick end-to-end check before running the larger benchmark:
 
 ```bash
-just run-pipeline --smoke
+make run-pipeline --smoke
 ```
 
 This smoke profile uses 20 queries, 40 documents, and `top_k=20`—two
@@ -277,7 +277,7 @@ publishes three URI values:
 
 Metadata links from older pipeline runs may still point at
 `retrieval-embedding-...` hostnames that no longer resolve. Use the latest run
-or run `just validate-model` to print the admitted Route URL.
+or run `make validate-model` to print the admitted Route URL.
 
 The public OpenShift Route opens a small search application. Enter a support
 question, choose the number of results, and select **Search**. Each result shows
@@ -295,10 +295,10 @@ The search UI is published on an OpenShift Route named `{MODEL_SERVING_NAME}-ui`
 (`retrieval-embedding`). KServe on OpenShift removes Routes that share the
 InferenceService name, so the deploy step uses a separate `-ui` Route. ZenML
 metadata links from older pipeline runs may still point at the previous Route
-name and will not load; use the latest run metadata or `just validate-model` for
+name and will not load; use the latest run metadata or `make validate-model` for
 the current URL.
 
-If the ZenML link is unavailable, `just validate-model` validates the
+If the ZenML link is unavailable, `make validate-model` validates the
 deployment and prints the complete public Route URL. The command requires an
 authenticated `oc` session and uses `MODEL_SERVING_ROUTE` (and related settings)
 from `deployment.env`.
@@ -306,7 +306,7 @@ from `deployment.env`.
 Finally, validate the deployed search application:
 
 ```bash
-just validate-model
+make validate-model
 ```
 
 This checks that the `InferenceService` and Route are ready, forwards a local
@@ -317,12 +317,12 @@ Individual checks and operational commands are also available:
 
 | Command | Result |
 | --- | --- |
-| `just validate-server` | Validates the ZenML server and MySQL deployment |
-| `just validate-stack` | Validates OpenShift resources and ZenML stack registrations |
-| `just refresh-stack-credentials` | Renews Kubernetes, registry, and MLflow credentials |
-| `just run-pipeline` | Refreshes credentials and submits the configured pipeline |
-| `just run-pipeline --smoke` | Refreshes credentials and submits the small smoke profile |
-| `just validate-model` | Checks the KServe search UI, ranked results, and embedding API |
+| `make validate-server` | Validates the ZenML server and MySQL deployment |
+| `make validate-stack` | Validates OpenShift resources and ZenML stack registrations |
+| `make refresh-stack-credentials` | Renews Kubernetes, registry, and MLflow credentials |
+| `make run-pipeline` | Refreshes credentials and submits the configured pipeline |
+| `make run-pipeline --smoke` | Refreshes credentials and submits the small smoke profile |
+| `make validate-model` | Checks the KServe search UI, ranked results, and embedding API |
 
 ### Delete
 
@@ -330,7 +330,7 @@ Remove the remote stack before the server so that the teardown can still
 authenticate to ZenML and delete its component registrations:
 
 ```bash
-just delete
+make delete
 ```
 
 Deletion requires explicit confirmation. It removes the dedicated workload
@@ -343,8 +343,8 @@ Route are intentionally retained and must be reviewed separately.
 The phases can also be removed individually, in this order:
 
 ```bash
-just delete-stack
-just delete-server
+make delete-stack
+make delete-server
 ```
 
 
@@ -369,7 +369,7 @@ just delete-server
 ├── scripts/                  # Thin wrappers around Helm, ZenML CLI, and validation
 ├── docs/images/              # Architecture diagrams and screenshots
 ├── deployment.env.example    # Deployment and stack configuration example
-├── justfile                  # User-facing deployment and operation commands
+├── makefile                  # User-facing deployment and operation commands
 └── README.md
 ```
 
@@ -485,11 +485,11 @@ The Kubernetes connector, registry pull secret, and MLflow tracking token use
 OpenShift service-account tokens. Their requested lifetime defaults to 24 hours,
 with a five-minute expiry safety window for the Kubernetes connector.
 
-`just run-pipeline` refreshes these credentials before submission. They can be
+`make run-pipeline` refreshes these credentials before submission. They can be
 renewed independently with:
 
 ```bash
-just refresh-stack-credentials
+make refresh-stack-credentials
 ```
 
 Refresh requires authenticated `oc` and ZenML CLI sessions and a reachable
