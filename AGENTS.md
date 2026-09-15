@@ -110,10 +110,11 @@ make helm-lint
 make helm-template
 ```
 
-There is a small retrieval contract test suite but **no CI workflow**. Run
-`python -m pytest -q apps/tests/test_retrieval.py`, use `make helm-lint` for
-chart edits, and, when a cluster is available, use the `just validate*` and
-`just run-pipeline` flow.
+There is a retrieval contract test suite under `apps/tests/` and a GitHub Actions
+workflow (`.github/workflows/apps-tests.yml`) that runs on pull requests and
+pushes to `main` and `dev`. Run `python -m pytest -q apps/tests`, use
+`make helm-lint` for chart edits, and, when a cluster is available, use the
+`just validate*` and `just run-pipeline` flow.
 
 ## Architecture constraints
 

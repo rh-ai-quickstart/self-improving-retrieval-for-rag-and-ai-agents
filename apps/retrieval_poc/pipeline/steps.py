@@ -13,6 +13,7 @@ from zenml.utils.metadata_utils import log_metadata
 from apps.retrieval_poc.config import ModelConfig
 from apps.retrieval_poc.infrastructure.bundle_store import publish_search_bundle
 from apps.retrieval_poc.infrastructure.kserve import deploy_search_service
+from apps.retrieval_poc.pipeline.selection import choose_best_model
 from apps.retrieval_poc.retrieval.dataset import RetrievalBenchmark, load_techqa
 from apps.retrieval_poc.retrieval.evaluation import evaluate_model
 from apps.retrieval_poc.retrieval.indexing import build_search_bundle
@@ -104,16 +105,7 @@ def select_best_model(
     metric: str = "ndcg_at_10",
 ) -> dict[str, Any]:
     """Select and return the best model according to the requested metric."""
-    if not results:
-        raise ValueError("No model evaluation results were provided.")
-    missing_metric = [
-        result.get("model_id", "<unknown>")
-        for result in results
-        if metric not in result
-    ]
-    if missing_metric:
-        raise KeyError(f"Metric {metric!r} missing for models: {missing_metric}")
-    winner = max(results, key=lambda result: float(result[metric]))
+    winner = choose_best_model(results, metric=metric)
 
     print("\nModel comparison")
     print("=" * 100)

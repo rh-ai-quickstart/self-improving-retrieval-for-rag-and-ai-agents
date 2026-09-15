@@ -1,0 +1,43 @@
+suite: ZenML server Route
+templates:
+  - route.yaml
+release:
+  name: zenml-server
+  namespace: zenml
+tests:
+  - it: exposes the ZenML server with an edge-terminated Route
+    set:
+      route.enabled: true
+      route.name: zenml-server
+      route.serviceName: zenml-server
+    asserts:
+      - isKind:
+          of: Route
+      - equal:
+          path: metadata.name
+          value: zenml-server
+      - equal:
+          path: spec.tls.termination
+          value: edge
+      - equal:
+          path: spec.tls.insecureEdgeTerminationPolicy
+          value: Redirect
+      - equal:
+          path: spec.to.name
+          value: zenml-server
+
+  - it: honors a configured Route hostname
+    set:
+      route.enabled: true
+      route.host: zenml.example.test
+    asserts:
+      - equal:
+          path: spec.host
+          value: zenml.example.test
+
+  - it: skips Route when disabled
+    set:
+      route.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

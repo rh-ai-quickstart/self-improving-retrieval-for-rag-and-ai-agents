@@ -116,3 +116,24 @@ delete-server:
         exit 1; \
     fi
     ./scripts/delete_zenml_on_os.sh "{{deployment_env}}"
+
+# Lint the OpenShift Helm charts (no cluster required).
+helm-lint:
+    helm lint deploy/helm/zenml-stack
+    helm lint deploy/helm/zenml-server
+
+# Lint, render, and unit-test the OpenShift Helm charts (no cluster required).
+helm-test:
+    ./scripts/test_helm_charts.sh
+
+# Render the OpenShift Helm charts locally (no cluster required).
+helm-template:
+    helm template zenml-stack deploy/helm/zenml-stack --namespace zenml-workloads \
+        -f deploy/helm/zenml-stack/secrets.yaml.example
+    helm template zenml-server deploy/helm/zenml-server --namespace zenml \
+        -f deploy/helm/zenml-server/values-openshift.yaml \
+        -f deploy/helm/zenml-server/secrets.yaml.example
+
+# Run the offline apps unit test suite.
+test:
+    python -m pytest -q apps/tests

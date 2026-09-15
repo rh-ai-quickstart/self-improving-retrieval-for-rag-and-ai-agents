@@ -1,0 +1,42 @@
+suite: KServe RBAC
+templates:
+  - kserve-rbac.yaml
+release:
+  name: zenml-stack
+  namespace: zenml-workloads
+tests:
+  - it: grants InferenceService and Route permissions to the orchestrator SA
+    asserts:
+      - documentIndex: 0
+        isKind:
+          of: Role
+      - documentIndex: 0
+        equal:
+          path: metadata.name
+          value: zenml-kserve-deployer
+      - documentIndex: 0
+        contains:
+          path: rules[0].apiGroups
+          content: serving.kserve.io
+      - documentIndex: 0
+        contains:
+          path: rules[1].apiGroups
+          content: route.openshift.io
+      - documentIndex: 1
+        isKind:
+          of: RoleBinding
+      - documentIndex: 1
+        equal:
+          path: subjects[0].name
+          value: zenml-orchestrator
+      - documentIndex: 1
+        equal:
+          path: subjects[0].namespace
+          value: zenml-workloads
+
+  - it: skips KServe RBAC when disabled
+    set:
+      kserve.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
