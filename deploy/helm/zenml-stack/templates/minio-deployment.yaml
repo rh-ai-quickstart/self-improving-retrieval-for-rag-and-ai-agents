@@ -19,7 +19,6 @@ spec:
       labels:
         {{- include "zenml-stack.labels" . | nindent 8 }}
         app.kubernetes.io/name: minio
-        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       securityContext:
         seccompProfile:

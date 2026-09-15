@@ -5,7 +5,7 @@ SHELL := /bin/bash
 DEPLOYMENT_ENV ?= deployment.env
 PIPELINE_ARGS ?=
 
-.PHONY: default help bootstrap bootstrap-server bootstrap-stack validate validate-server validate-stack refresh-stack-credentials run-pipeline validate-model delete delete-stack delete-server helm-lint helm-template test
+.PHONY: default help bootstrap bootstrap-server bootstrap-stack validate validate-server validate-stack refresh-stack-credentials run-pipeline validate-model delete delete-stack delete-server helm-lint helm-template helm-test test
 
 default: help
 
@@ -25,6 +25,7 @@ help:
 	@echo "  delete-server             Remove the ZenML server, Route, persistent MySQL database, and PVCs"
 	@echo "  helm-lint                 Lint the OpenShift Helm charts"
 	@echo "  helm-template             Render the OpenShift Helm charts locally"
+	@echo "  helm-test                 Lint, render, and unit-test the Helm charts"
 	@echo "  test                      Run the offline apps unit test suite"
 
 # Start phase 1. Activate the server and authenticate the CLI before phase 2.
@@ -142,6 +143,9 @@ helm-template:
 	helm template zenml-server deploy/helm/zenml-server --namespace zenml \
 		-f deploy/helm/zenml-server/values-openshift.yaml \
 		-f deploy/helm/zenml-server/secrets.yaml.example
+
+helm-test:
+	./scripts/test_helm_charts.sh
 
 test:
 	python -m pytest -q apps/tests
