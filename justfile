@@ -116,3 +116,7 @@ delete-server:
         exit 1; \
     fi
     ./scripts/delete_zenml_on_os.sh "{{deployment_env}}"
+
+# Run the offline apps unit test suite.
+test:
+    python -m pytest -q apps/tests

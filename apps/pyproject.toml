@@ -18,7 +18,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<10"]
+dev = [
+    "pytest>=8,<10",
+    "httpx>=0.27,<1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["apps/tests"]
+pythonpath = ["."]
 
 [build-system]
 requires = ["setuptools>=75"]

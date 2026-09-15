@@ -5,10 +5,12 @@
 # at docker.io/bitnamilegacy/mysql:8.4.3-debian-12-r0. The original
 # openshift/mysql-persistent template uses ImageStreamTag mysql:8.0-el8
 # (registry.redhat.io/rhel8/mysql-80:latest); that image is not drop-in
-# compatible with the Bitnami subchart. bitnamilegacy is public on docker.io,
-# so no imagePullSecret is required.
-
+# compatible with the Bitnami subchart. Shared dev clusters often hit Docker Hub
+# anonymous pull limits; create Secret dockerhub-pull in the server namespace and
+# reference it here for both subcharts.
 zenml:
+  imagePullSecrets:
+    - name: dockerhub-pull
   podSecurityContext:
     fsGroup: null
     fsGroupChangePolicy: null
@@ -26,6 +28,9 @@ zenml:
       enabled: false
 
 mysql:
+  global:
+    imagePullSecrets:
+      - dockerhub-pull
   image:
     registry: docker.io
     repository: bitnamilegacy/mysql
