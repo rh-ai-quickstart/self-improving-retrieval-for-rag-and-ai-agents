@@ -33,6 +33,14 @@ ensure_helm_unittest() {
         --version "v${HELM_UNITTEST_VERSION}"
 }
 
+ensure_helm_repositories() {
+    echo "==> Ensuring Helm chart repositories"
+    if ! helm repo list 2>/dev/null | awk 'NR>1 {print $1}' | grep -qx bitnami; then
+        helm repo add bitnami https://charts.bitnami.com/bitnami
+    fi
+    helm repo update bitnami
+}
+
 run_stack_chart_tests() {
     echo "==> Linting zenml-stack"
     helm lint "${STACK_CHART}" -f "${STACK_VALUES}"
@@ -47,6 +55,8 @@ run_stack_chart_tests() {
 }
 
 run_server_chart_tests() {
+    ensure_helm_repositories
+
     echo "==> Building zenml-server chart dependencies"
     helm dependency build "${SERVER_CHART}"
 
