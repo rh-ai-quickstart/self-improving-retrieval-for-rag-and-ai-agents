@@ -509,9 +509,8 @@ local Docker daemon.
 
 ### Production-readiness limitations
 
-> [!WARNING]
-> This deployment is a proof of concept. It is intended for isolated
-> development and demonstration environments, not production use.
+**WARNING**
+This deployment is a proof of concept. It is intended for isolated development and demonstration environments, not production use.
 
 The included search application is intentionally a small-scale POC: it loads a
 static, exact FAISS `IndexFlatIP` index into the FastAPI process and rebuilds
