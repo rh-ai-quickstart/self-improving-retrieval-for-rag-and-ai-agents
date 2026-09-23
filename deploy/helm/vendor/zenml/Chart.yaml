@@ -1,0 +1,15 @@
+apiVersion: v2
+description: 'ZenML: MLOps for Reliable AI: from Classical AI to Agents.'
+home: https://zenml.io
+icon: https://raw.githubusercontent.com/zenml-io/zenml/main/docs/book/.gitbook/assets/header.png
+keywords:
+- mlops
+- zenml
+- server
+- ai
+- agents
+- agentic workflows
+name: zenml
+sources:
+- https://github.com/zenml-io/zenml
+version: 0.96.2

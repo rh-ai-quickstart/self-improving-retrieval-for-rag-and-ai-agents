@@ -1,0 +1,704 @@
+{{/*
+Helpers for environment variables configured in ZenML deployments and secrets store
+*/}}
+
+
+{{/*
+ZenML store configuration options (non-secret values).
+
+This template constructs a dictionary that is similar to the python values that
+can be configured in the zenml.zen_store.sql_zen_store.SqlZenStoreConfiguration
+class. Only non-secret values are included in this dictionary.
+
+The dictionary is then converted into deployment environment variables by other
+templates and inserted where it is needed.
+
+The input is taken from a .ZenML dict that is passed to the template and
+contains the values configured in the values.yaml file for the ZenML server.
+
+Args:
+  .ZenML: A dictionary with the ZenML configuration values configured for the
+  ZenML server.
+Returns:
+  A dictionary with the non-secret values configured for the ZenML store.
+*/}}
+{{- define "zenml.storeConfigurationAttrs" -}}
+{{- if .ZenML.database.url }}
+type: sql
+{{- if .ZenML.database.ssl }}
+ssl: {{ .ZenML.database.ssl | quote }}
+{{- end }}
+{{- if and .ZenML.database.sslCa .ZenML.database.sslCa.secretRef }}
+ssl_ca: /dbcerts/{{ .ZenML.database.sslCa.secretRef.key }}
+{{- end }}
+{{- if and .ZenML.database.sslCert .ZenML.database.sslCert.secretRef }}
+ssl_cert: /dbcerts/{{ .ZenML.database.sslCert.secretRef.key }}
+{{- end }}
+{{- if and .ZenML.database.sslKey .ZenML.database.sslKey.secretRef }}
+ssl_key: /dbcerts/{{ .ZenML.database.sslKey.secretRef.key }}
+{{- end }}
+ssl_verify_server_cert: {{ .ZenML.database.sslVerifyServerCert | quote }}
+{{- if .ZenML.database.backupStrategy }}
+backup_strategy: {{ .ZenML.database.backupStrategy | quote }}
+{{- if eq .ZenML.database.backupStrategy "database" }}
+backup_database: {{ .ZenML.database.backupDatabase | quote }}
+{{- else if eq .ZenML.database.backupStrategy "dump-file" }}
+backup_directory: "/backups"
+{{- else if eq .ZenML.database.backupStrategy "mydumper" }}
+backup_directory: "/backups"
+{{- if .ZenML.database.mydumperThreads }}
+mydumper_threads: {{ .ZenML.database.mydumperThreads | quote }}
+{{- end }}
+{{- if .ZenML.database.mydumperCompress }}
+mydumper_compress: {{ .ZenML.database.mydumperCompress | quote }}
+{{- end }}
+{{- if .ZenML.database.mydumperExtraArgs }}
+mydumper_extra_args: {{ .ZenML.database.mydumperExtraArgs | toJson | quote }}
+{{- end }}
+{{- if .ZenML.database.myloaderThreads }}
+myloader_threads: {{ .ZenML.database.myloaderThreads | quote }}
+{{- end }}
+{{- if .ZenML.database.myloaderExtraArgs }}
+myloader_extra_args: {{ .ZenML.database.myloaderExtraArgs | toJson | quote }}
+{{- end }}
+{{- else if eq .ZenML.database.backupStrategy "custom" }}
+custom_backup_engine: {{ .ZenML.database.customBackupEngine | quote }}
+{{- if .ZenML.database.customBackupEngineConfig }}
+custom_backup_engine_config: {{ .ZenML.database.customBackupEngineConfig | toJson | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if .ZenML.database.poolSize }}
+pool_size: {{ .ZenML.database.poolSize | quote }}
+{{- end }}
+{{- if .ZenML.database.maxOverflow }}
+max_overflow: {{ .ZenML.database.maxOverflow | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+
+{{/*
+ZenML store configuration options (secret values).
+
+This template constructs a dictionary that is similar to the python values that
+can be configured in the zenml.zen_store.sql_zen_store.SqlZenStoreConfiguration
+class. Only secret values are included in this dictionary.
+
+The dictionary is then converted into deployment environment variables by other
+templates and inserted where it is needed.
+
+The input is taken from a .ZenML dict that is passed to the template and
+contains the values configured in the values.yaml file for the ZenML server.
+
+Args:
+  .ZenML: A dictionary with the ZenML configuration values configured for the
+  ZenML server.
+Returns:
+  A dictionary with the secret values configured for the ZenML store.
+*/}}
+{{- define "zenml.storeSecretConfigurationAttrs" -}}
+{{- if .ZenML.database.url }}
+url: {{ .ZenML.database.url | quote }}
+{{- if and .ZenML.database.sslCa .ZenML.database.sslCa.value }}
+ssl_ca: {{ .ZenML.database.sslCa.value | quote }}
+{{- end }}
+{{- if and .ZenML.database.sslCert .ZenML.database.sslCert.value }}
+ssl_cert: {{ .ZenML.database.sslCert.value | quote }}
+{{- end }}
+{{- if and .ZenML.database.sslKey .ZenML.database.sslKey.value }}
+ssl_key: {{ .ZenML.database.sslKey.value | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+
+{{/*
+Store configuration environment variables (non-secret values).
+
+Resolves server values and passes them as input to the
+`zenml.storeConfigurationAttrs` template, converting the output into a
+dictionary of environment variables that need to be configured for the store.
+
+Args:
+  .: The root context containing .Values
+Returns:
+  A dictionary with the non-secret environment variables that are configured for
+  the store (i.e. keys starting with `ZENML_STORE_`).
+*/}}
+{{- define "zenml.storeEnvVariables" -}}
+{{- $server := include "zenml.serverValues" . | fromYaml -}}
+{{ $zenml := dict "ZenML" $server }}
+{{- range $k, $v := include "zenml.storeConfigurationAttrs" $zenml | fromYaml }}
+ZENML_STORE_{{ $k | upper }}: {{ $v | quote }}
+{{- end }}
+{{- end }}
+
+
+{{/*
+Store configuration environment variables (secret values).
+
+Resolves server values and passes them as input to the
+`zenml.storeSecretConfigurationAttrs` template, converting the output into a
+dictionary of environment variables that need to be configured for the store.
+
+Args:
+  .: The root context containing .Values
+Returns:
+  A dictionary with the secret environment variables that are configured for
+  the store (i.e. keys starting with `ZENML_STORE_`).
+*/}}
+{{- define "zenml.storeSecretEnvVariables" -}}
+{{- $server := include "zenml.serverValues" . | fromYaml -}}
+{{ $zenml := dict "ZenML" $server }}
+{{- range $k, $v := include "zenml.storeSecretConfigurationAttrs" $zenml | fromYaml }}
+ZENML_STORE_{{ $k | upper }}: {{ $v | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
+ZenML server configuration options (non-secret values).
+
+This template constructs a dictionary that is similar to the python values that
+can be configured in the zenml.config.server_config.ServerConfiguration
+class. Only non-secret values are included in this dictionary.
+
+The dictionary is then converted into deployment environment variables by other
+templates and inserted where it is needed.
+
+The input is taken from a .ZenML dict that is passed to the template and
+contains the values configured in the values.yaml file for the ZenML server.
+
+Args:
+  .ZenML: A dictionary with the ZenML configuration values configured for the
+  ZenML server.
+Returns:
+  A dictionary with the non-secret values configured for the ZenML server.
+*/}}
+{{- define "zenml.serverConfigurationAttrs" -}}
+
+{{- if .ZenML.pro.enabled }}
+deployment_type: cloud
+pro_api_url: "{{ .ZenML.pro.apiURL }}"
+pro_dashboard_url: "{{ .ZenML.pro.dashboardURL }}"
+pro_oauth2_audience: "{{ .ZenML.pro.apiURL }}"
+pro_organization_id: "{{ .ZenML.pro.organizationID }}"
+pro_workspace_id: "{{ .ZenML.pro.workspaceID }}"
+{{- if .ZenML.pro.workspaceName }}
+pro_workspace_name: "{{ .ZenML.pro.workspaceName }}"
+{{- end }}
+{{- if .ZenML.pro.organizationName }}
+pro_organization_name: "{{ .ZenML.pro.organizationName }}"
+{{- end }}
+{{- if .ZenML.pro.extraCorsOrigins }}
+cors_allow_origins: "{{ join "," .ZenML.pro.extraCorsOrigins }}"
+{{- end }}
+{{- if .ZenML.auth.jwtTokenExpireMinutes }}
+jwt_token_expire_minutes: {{ .ZenML.auth.jwtTokenExpireMinutes | quote }}
+{{- end }}
+
+{{- else }}
+
+auth_scheme: {{ .ZenML.authType | default .ZenML.auth.authType | quote }}
+deployment_type: {{ .ZenML.deploymentType | default "kubernetes" }}
+{{- if .ZenML.auth.corsAllowOrigins }}
+cors_allow_origins: {{ join "," .ZenML.auth.corsAllowOrigins | quote }}
+{{- end }}
+{{- if .ZenML.auth.externalLoginURL }}
+external_login_url: {{ .ZenML.auth.externalLoginURL | quote }}
+{{- end }}
+{{- if .ZenML.auth.externalUserInfoURL }}
+external_user_info_url: {{ .ZenML.auth.externalUserInfoURL | quote }}
+{{- end }}
+{{- if .ZenML.auth.externalServerID }}
+external_server_id: {{ .ZenML.auth.externalServerID | quote }}
+{{- end }}
+{{- if .ZenML.auth.jwtTokenExpireMinutes }}
+jwt_token_expire_minutes: {{ .ZenML.auth.jwtTokenExpireMinutes | quote }}
+{{- end }}
+{{- if .ZenML.auth.rbacImplementationSource }}
+rbac_implementation_source: {{ .ZenML.auth.rbacImplementationSource | quote }}
+{{- end }}
+{{- if .ZenML.auth.featureGateImplementationSource }}
+feature_gate_implementation_source: {{ .ZenML.auth.featureGateImplementationSource | quote }}
+{{- end }}
+{{- if .ZenML.dashboardURL }}
+dashboard_url: {{ .ZenML.dashboardURL | quote }}
+{{- end }}
+
+{{- end }}
+
+{{- if .ZenML.threadPoolSize }}
+thread_pool_size: {{ .ZenML.threadPoolSize | quote }}
+{{- end }}
+{{- if .ZenML.authThreadPoolSize }}
+auth_thread_pool_size: {{ .ZenML.authThreadPoolSize | quote }}
+{{- end }}
+{{- if .ZenML.requestTimeout }}
+request_timeout: {{ .ZenML.requestTimeout | quote }}
+{{- end }}
+{{- if .ZenML.requestCacheTimeout }}
+request_cache_timeout: {{ .ZenML.requestCacheTimeout | quote }}
+{{- end }}
+{{- if .ZenML.streaming }}
+{{- if .ZenML.streaming.streamBrokerImplementationSource }}
+stream_broker_implementation_source: {{ .ZenML.streaming.streamBrokerImplementationSource | quote }}
+{{- end }}
+{{- if .ZenML.streaming.heartbeatSeconds }}
+streaming_heartbeat_seconds: {{ .ZenML.streaming.heartbeatSeconds | quote }}
+{{- end }}
+{{- if .ZenML.streaming.maxSubscribersPerStream }}
+streaming_max_subscribers_per_stream: {{ .ZenML.streaming.maxSubscribersPerStream | quote }}
+{{- end }}
+{{- if .ZenML.streaming.broadcasterIdleGraceSeconds }}
+streaming_broadcaster_idle_grace_seconds: {{ .ZenML.streaming.broadcasterIdleGraceSeconds | quote }}
+{{- end }}
+{{- end }}
+{{- if .ZenML.auth.jwtTokenAlgorithm }}
+jwt_token_algorithm: {{ .ZenML.auth.jwtTokenAlgorithm | quote }}
+{{- end }}
+{{- if .ZenML.auth.jwtTokenIssuer }}
+jwt_token_issuer: {{ .ZenML.auth.jwtTokenIssuer | quote }}
+{{- end }}
+{{- if .ZenML.auth.jwtTokenAudience }}
+jwt_token_audience: {{ .ZenML.auth.jwtTokenAudience | quote }}
+{{- end }}
+{{- if .ZenML.auth.jwtTokenLeewaySeconds }}
+jwt_token_leeway_seconds: {{ .ZenML.auth.jwtTokenLeewaySeconds | quote }}
+{{- end }}
+{{- if .ZenML.auth.authCookieName }}
+auth_cookie_name: {{ .ZenML.auth.authCookieName | quote }}
+{{- end }}
+{{- if .ZenML.auth.authCookieDomain }}
+auth_cookie_domain: {{ .ZenML.auth.authCookieDomain | quote }}
+{{- end }}
+{{- if .ZenML.auth.maxFailedDeviceAuthAttempts }}
+max_failed_device_auth_attempts: {{ .ZenML.auth.maxFailedDeviceAuthAttempts | quote }}
+{{- end }}
+{{- if .ZenML.auth.deviceAuthTimeout }}
+device_auth_timeout: {{ .ZenML.auth.deviceAuthTimeout | quote }}
+{{- end }}
+{{- if .ZenML.auth.deviceAuthPollingInterval }}
+device_auth_polling_interval: {{ .ZenML.auth.deviceAuthPollingInterval | quote }}
+{{- end }}
+{{- if .ZenML.auth.deviceExpirationMinutes }}
+device_expiration_minutes: {{ .ZenML.auth.deviceExpirationMinutes | quote }}
+{{- end }}
+{{- if .ZenML.auth.trustedDeviceExpirationMinutes }}
+trusted_device_expiration_minutes: {{ .ZenML.auth.trustedDeviceExpirationMinutes | quote }}
+{{- end }}
+{{- if .ZenML.rootUrlPath }}
+root_url_path: {{ .ZenML.rootUrlPath | quote }}
+{{- end }}
+{{- if .ZenML.serverURL }}
+server_url: {{ .ZenML.serverURL | quote }}
+{{- end }}
+{{- with .ZenML.openTelemetry }}
+{{- if or .endpoint .tracesEndpoint .metricsEndpoint .logsEndpoint }}
+{{- if .endpoint }}
+otel_exporter_otlp_endpoint: {{ .endpoint | quote }}
+{{- end }}
+{{- if .serviceName }}
+otel_service_name: {{ .serviceName | quote }}
+{{- end }}
+{{- if .tracesEndpoint }}
+otel_exporter_otlp_traces_endpoint: {{ .tracesEndpoint | quote }}
+{{- end }}
+{{- if .metricsEndpoint }}
+otel_exporter_otlp_metrics_endpoint: {{ .metricsEndpoint | quote }}
+{{- end }}
+{{- if .logsEndpoint }}
+otel_exporter_otlp_logs_endpoint: {{ .logsEndpoint | quote }}
+{{- end }}
+{{- if hasKey . "tracesEnabled" }}
+otel_traces_enabled: {{ .tracesEnabled | quote }}
+{{- end }}
+{{- if hasKey . "metricsEnabled" }}
+otel_metrics_enabled: {{ .metricsEnabled | quote }}
+{{- end }}
+{{- if hasKey . "logsEnabled" }}
+otel_logs_enabled: {{ .logsEnabled | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- range $key, $value := .ZenML.secure_headers }}
+secure_headers_{{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}
+
+
+{{/*
+Server configuration environment variables (non-secret values).
+
+Resolves server values and passes them as input to the
+`zenml.serverConfigurationAttrs` template, converting the output into a
+dictionary of environment variables that need to be configured for the server.
+
+Args:
+  .: The root context containing .Values
+Returns:
+  A dictionary with the non-secret environment variables that are configured for
+  the server (i.e. keys starting with `ZENML_SERVER_`).
+*/}}
+{{- define "zenml.serverEnvVariables" -}}
+{{- $server := include "zenml.serverValues" . | fromYaml -}}
+{{ $zenml := dict "ZenML" $server }}
+{{- range $k, $v := include "zenml.serverConfigurationAttrs" $zenml | fromYaml }}
+ZENML_SERVER_{{ $k | upper }}: {{ $v | quote }}
+{{- end }}
+{{- end }}
+
+
+{{/*
+Secrets store configuration options (non-secret values).
+
+This template constructs a dictionary that is similar to the python values that
+can be configured in the zenml.config.secrets_store_config.SecretsStoreConfiguration
+subclasses for each secrets store type. Only non-secret values are included in
+this dictionary.
+
+The dictionary is then converted into deployment environment variables by other
+templates and inserted where it is needed.
+
+The input is taken from a .SecretsStore dict that is passed to the template and
+contains the values configured in the values.yaml file for either the primary
+secrets store or the backup secrets store.
+
+Legacy support for passing the GCP secrets store credentials through the
+`GOOGLE_APPLICATION_CREDENTIALS` environment variable is addressed here and
+converted into the corresponding `auth_method` and `auth_config` values for the
+GCP secrets store. This allows all values to be handed over to the container
+as environment variables, without the need to mount the credentials into the
+container as a volume.
+
+Args:
+  .SecretsStore: A dictionary with the values configured for either the primary
+    or the backup secrets store.
+Returns:
+  A dictionary with the non-secret values configured for the secrets store.
+*/}}
+{{- define "zenml.secretsStoreConfigurationAttrs" -}}
+{{- if .SecretsStore.enabled }}
+type: {{ .SecretsStore.type | quote }}
+{{- if eq .SecretsStore.type "aws" }}
+auth_method: {{ .SecretsStore.aws.authMethod | quote }}
+{{- if .SecretsStore.aws.region_name }}
+region_name: {{ .SecretsStore.aws.region_name | quote }}
+{{- end }}
+{{- else if eq .SecretsStore.type "gcp" }}
+{{- if .SecretsStore.gcp.google_application_credentials }}
+auth_method: "service-account"
+{{- else }}
+auth_method: {{ .SecretsStore.gcp.authMethod | quote }}
+{{- if .SecretsStore.gcp.project_id }}
+project_id: {{ .SecretsStore.gcp.project_id | quote }}
+{{- end }}
+{{- end }}
+{{- else if eq .SecretsStore.type "azure" }}
+auth_method: {{ .SecretsStore.azure.authMethod | quote }}
+key_vault_name: {{ .SecretsStore.azure.key_vault_name | quote }}
+{{- else if eq .SecretsStore.type "hashicorp" }}
+auth_method: {{ .SecretsStore.hashicorp.authMethod | quote }}
+{{- if .SecretsStore.hashicorp.authConfig.auth_mount_point }}
+auth_mount_point: {{ .SecretsStore.hashicorp.authConfig.auth_mount_point | quote }}
+{{- end }}
+{{- if .SecretsStore.hashicorp.vault_addr }}
+vault_addr: {{ .SecretsStore.hashicorp.vault_addr | quote }}
+{{- else }}
+vault_addr: {{ .SecretsStore.hashicorp.authConfig.vault_addr | quote }}
+{{- end }}
+{{- if .SecretsStore.hashicorp.vault_namespace }}
+vault_namespace: {{ .SecretsStore.hashicorp.vault_namespace | quote }}
+{{- else if .SecretsStore.hashicorp.authConfig.vault_namespace }}
+vault_namespace: {{ .SecretsStore.hashicorp.authConfig.vault_namespace | quote }}
+{{- end }}
+{{- if .SecretsStore.hashicorp.mount_point }}
+mount_point: {{ .SecretsStore.hashicorp.mount_point | quote }}
+{{- else if .SecretsStore.hashicorp.authConfig.mount_point }}
+mount_point: {{ .SecretsStore.hashicorp.authConfig.mount_point | quote }}
+{{- end }}
+{{- if .SecretsStore.hashicorp.max_versions }}
+max_versions: {{ .SecretsStore.hashicorp.max_versions | quote }}
+{{- else if .SecretsStore.hashicorp.authConfig.max_versions }}
+max_versions: {{ .SecretsStore.hashicorp.authConfig.max_versions | quote }}
+{{- end }}
+{{- if eq .SecretsStore.hashicorp.authMethod "app_role" }}
+app_role_id: {{ .SecretsStore.hashicorp.authConfig.app_role_id | quote }}
+{{- else if eq .SecretsStore.hashicorp.authMethod "aws" }}
+aws_role: {{ .SecretsStore.hashicorp.authConfig.aws_role | quote }}
+aws_header_value: {{ .SecretsStore.hashicorp.authConfig.aws_header_value | quote }}
+{{- end }}
+{{- else if eq .SecretsStore.type "custom" }}
+class_path: {{ .SecretsStore.custom.class_path | quote }}
+{{- end }}
+{{- else }}
+type: none
+{{- end }}
+{{- end }}
+
+{{/*
+Legacy GCP secrets store configuration.
+
+This template is used to support the legacy GCP secrets store credentials
+attributes (`zenml.secretsStore.gcp.google_application_credentials` and
+`zenml.secretsStore.gcp.project_id`) and convert them automatically into the
+corresponding new-style `auth_config` values for the GCP secrets store.
+
+Args:
+  .SecretsStore: A dictionary with the values configured for either the primary
+    or the backup secrets store.
+Returns:
+  A `zenml.secretsStore.gcp.authConfig` value computed from the legacy GCP
+  secrets store credentials attributes.
+*/}}
+{{- define "zenml.legacyGCPSecretsStoreAuthConfig" -}}
+project_id: {{ .SecretsStore.gcp.project_id | quote }}
+service_account_json: {{ .SecretsStore.gcp.google_application_credentials | quote }}
+{{- end }}
+
+
+{{/*
+Secrets store configuration options (secret values).
+
+This template constructs a dictionary that is similar to the python values that
+can be configured in the zenml.config.secrets_store_config.SecretsStoreConfiguration
+subclasses for each secrets store type. Only secret configuration values are
+included in this dictionary.
+
+The dictionary is then converted into secret environment variables by other
+templates and inserted where it is needed.
+
+The input is taken from a .SecretsStore dict that is passed to the template and
+contains the values configured in the values.yaml file for either the primary
+secrets store or the backup secrets store.
+
+Legacy support for passing the GCP secrets store credentials through the
+`GOOGLE_APPLICATION_CREDENTIALS` environment variable is addressed here and
+converted into the corresponding `auth_method` and `auth_config` values for the
+GCP secrets store. This allows all values to be handed over to the container
+as environment variables, without the need to mount the credentials into the
+container as a volume.
+
+Args:
+  .SecretsStore: A dictionary with the values configured for either the primary
+    or the backup secrets store.
+Returns:
+  A dictionary with the secret values configured for the secrets store.
+*/}}
+{{- define "zenml.secretsStoreSecretConfigurationAttrs" -}}
+{{- if .SecretsStore.enabled }}
+{{- if eq .SecretsStore.type "sql" }}
+{{- if .SecretsStore.sql.encryptionKey }}
+encryption_key: {{ .SecretsStore.sql.encryptionKey | quote }}
+{{- else if .SecretsStore.encryptionKey }}
+encryption_key: {{ .SecretsStore.encryptionKey | quote }}
+{{- end }}
+{{- else if eq .SecretsStore.type "aws" }}
+{{- if .SecretsStore.aws.authConfig }}
+auth_config: {{ .SecretsStore.aws.authConfig | toJson | quote }}
+{{- end }}
+{{- if .SecretsStore.aws.aws_access_key_id }}
+aws_access_key_id: {{ .SecretsStore.aws.aws_access_key_id | quote }}
+{{- end }}
+{{- if .SecretsStore.aws.aws_secret_access_key }}
+aws_secret_access_key: {{ .SecretsStore.aws.aws_secret_access_key | quote }}
+{{- end }}
+{{- if .SecretsStore.aws.aws_session_token }}
+aws_session_token: {{ .SecretsStore.aws.aws_session_token | quote }}
+{{- end }}
+{{- else if eq .SecretsStore.type "azure" }}
+{{- if .SecretsStore.azure.authConfig }}
+auth_config: {{ .SecretsStore.azure.authConfig | toJson | quote }}
+{{- end }}
+{{- if .SecretsStore.azure.azure_client_id }}
+azure_client_id: {{ .SecretsStore.azure.azure_client_id | quote }}
+{{- end }}
+{{- if .SecretsStore.azure.azure_client_secret }}
+azure_client_secret: {{ .SecretsStore.azure.azure_client_secret | quote }}
+{{- end }}
+{{- if .SecretsStore.azure.azure_tenant_id }}
+azure_tenant_id: {{ .SecretsStore.azure.azure_tenant_id | quote }}
+{{- end }}
+{{- else if eq .SecretsStore.type "gcp" }}
+{{- if .SecretsStore.gcp.google_application_credentials }}
+auth_config: {{ include "zenml.legacyGCPSecretsStoreAuthConfig" . | fromYaml | toJson | quote }}
+{{- else if .SecretsStore.gcp.authConfig }}
+auth_config: {{ .SecretsStore.gcp.authConfig | toJson | quote }}
+{{- end }}
+{{- else if eq .SecretsStore.type "hashicorp" }}
+{{- if eq .SecretsStore.hashicorp.authMethod "token" }}
+{{- if .SecretsStore.hashicorp.vault_token }}
+vault_token: {{ .SecretsStore.hashicorp.vault_token | quote }}
+{{- else }}
+vault_token: {{ .SecretsStore.hashicorp.authConfig.vault_token | quote }}
+{{- end }}
+{{- else if eq .SecretsStore.hashicorp.authMethod "app_role" }}
+app_secret_id: {{ .SecretsStore.hashicorp.authConfig.app_secret_id | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+
+{{/*
+Primary secrets store environment variables (non-secret values).
+
+Resolves server values and passes the secretsStore config as input to the
+`zenml.secretsStoreConfigurationAttrs` template, converting the output into a
+dictionary of environment variables for the primary secrets store.
+
+Args:
+  .: The root context containing .Values
+Returns:
+  A dictionary with the non-secret environment variables that are configured for
+  the primary secrets store (i.e. keys starting with `ZENML_SECRETS_STORE_`).
+*/}}
+{{- define "zenml.secretsStoreEnvVariables" -}}
+{{- $server := include "zenml.serverValues" . | fromYaml -}}
+{{ $secretsStore := dict "SecretsStore" $server.secretsStore }}
+{{- range $k, $v := include "zenml.secretsStoreConfigurationAttrs" $secretsStore | fromYaml }}
+ZENML_SECRETS_STORE_{{ $k | upper }}: {{ $v | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
+Primary secrets store environment variables (secret values).
+
+Resolves server values and passes the secretsStore config as input to the
+`zenml.secretsStoreSecretConfigurationAttrs` template, converting the output
+into secret environment variables for the primary secrets store.
+
+Args:
+  .: The root context containing .Values
+Returns:
+  A dictionary with the secret environment variables that are configured for
+  the primary secrets store (i.e. keys starting with `ZENML_SECRETS_STORE_`).
+*/}}
+{{- define "zenml.secretsStoreSecretEnvVariables" -}}
+{{- $server := include "zenml.serverValues" . | fromYaml -}}
+{{ $secretsStore := dict "SecretsStore" $server.secretsStore }}
+{{- range $k, $v := include "zenml.secretsStoreSecretConfigurationAttrs" $secretsStore | fromYaml }}
+ZENML_SECRETS_STORE_{{ $k | upper }}: {{ $v | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
+Backup secrets store environment variables (non-secret values).
+
+Resolves server values and passes the backupSecretsStore config as input to
+the `zenml.secretsStoreConfigurationAttrs` template, converting the output
+into environment variables for the backup secrets store.
+
+Args:
+  .: The root context containing .Values
+Returns:
+  A dictionary with the non-secret environment variables that are configured for
+  the backup secrets store (i.e. keys starting with
+  `ZENML_BACKUP_SECRETS_STORE_`).
+*/}}
+{{- define "zenml.backupSecretsStoreEnvVariables" -}}
+{{- $server := include "zenml.serverValues" . | fromYaml -}}
+{{ $secretsStore := dict "SecretsStore" $server.backupSecretsStore }}
+{{- range $k, $v := include "zenml.secretsStoreConfigurationAttrs" $secretsStore | fromYaml }}
+ZENML_BACKUP_SECRETS_STORE_{{ $k | upper }}: {{ $v | quote }}
+{{- end }}
+{{- end }}
+
+
+{{/*
+Backup secrets store environment variables (secret values).
+
+Resolves server values and passes the backupSecretsStore config as input to
+the `zenml.secretsStoreSecretConfigurationAttrs` template, converting the
+output into secret environment variables for the backup secrets store.
+
+Args:
+  .: The root context containing .Values
+Returns:
+  A dictionary with the secret environment variables that are configured for
+  the backup secrets store (i.e. keys starting with
+  `ZENML_BACKUP_SECRETS_STORE_`).
+*/}}
+{{- define "zenml.backupSecretsStoreSecretEnvVariables" -}}
+{{- $server := include "zenml.serverValues" . | fromYaml -}}
+{{ $secretsStore := dict "SecretsStore" $server.backupSecretsStore }}
+{{- range $k, $v := include "zenml.secretsStoreSecretConfigurationAttrs" $secretsStore | fromYaml}}
+ZENML_BACKUP_SECRETS_STORE_{{ $k | upper }}: {{ $v | quote }}
+{{- end }}
+{{- end }}
+
+
+{{/*
+Base environment variables for ZenML deployments.
+
+Returns a dictionary with common configuration env vars.
+*/}}
+{{- define "zenml.baseEnvVariables" -}}
+{{- $server := include "zenml.serverValues" . | fromYaml -}}
+{{- $logging := $server.logging | default dict -}}
+ZENML_SERVER: "True"
+NODE_OPTIONS: "--use-openssl-ca"
+{{- if or $server.certificates.customCAs $server.certificates.secretRefs }}
+REQUESTS_CA_BUNDLE: "/updated-certs/ca-certificates.crt"
+SSL_CERT_FILE: "/updated-certs/ca-certificates.crt"
+{{- end }}
+{{- if $server.debug }}
+ZENML_LOGGING_VERBOSITY: "DEBUG"
+{{- else }}
+ZENML_LOGGING_VERBOSITY: {{ default "info" $logging.verbosity | upper | quote }}
+{{- end }}
+{{- with $logging }}
+{{- if .format }}
+ZENML_CONSOLE_LOGGING_FORMAT: {{ .format | quote }}
+{{- end }}
+{{- if hasKey . "colorsDisabled" }}
+ZENML_LOGGING_COLORS_DISABLED: {{ .colorsDisabled | quote }}
+{{- end }}
+{{- end }}
+{{- if $server.analyticsOptIn }}
+ZENML_ANALYTICS_OPT_IN: "True"
+{{- else }}
+ZENML_ANALYTICS_OPT_IN: "False"
+{{- end }}
+ZENML_DEFAULT_PROJECT_NAME: {{ $server.defaultProject | quote }}
+{{- if $server.enableImplicitAuthMethods }}
+ZENML_ENABLE_IMPLICIT_AUTH_METHODS: "True"
+{{- end }}
+{{- if $server.proxy.enabled }}
+HTTP_PROXY: {{ $server.proxy.httpProxy | quote }}
+HTTPS_PROXY: {{ $server.proxy.httpsProxy | quote }}
+NO_PROXY: {{ include "zenml.noProxyList" . | quote }}
+http_proxy: {{ $server.proxy.httpProxy | quote }}
+https_proxy: {{ $server.proxy.httpsProxy | quote }}
+no_proxy: {{ include "zenml.noProxyList" . | quote }}
+{{- end }}
+{{- end }}
+
+
+{{/*
+Complete environment variables for ZenML server and worker deployments.
+
+This template constructs a dictionary of all non-secret environment variables
+needed for ZenML deployments. It merges (in order of increasing precedence):
+1. Base configuration (zenml.baseEnvVariables)
+2. Store configuration (zenml.storeEnvVariables)
+3. Server configuration (zenml.serverEnvVariables)
+4. Secrets store configuration (zenml.secretsStoreEnvVariables)
+5. Backup secrets store configuration (zenml.backupSecretsStoreEnvVariables)
+6. User-provided environment variables (server.environment)
+
+Args:
+  .: The root context containing .Values
+Returns:
+  A dictionary of environment variables ready to be converted to name/value pairs.
+*/}}
+{{- define "zenml.envVariables" -}}
+{{- $server := include "zenml.serverValues" . | fromYaml -}}
+{{- $envVars := include "zenml.baseEnvVariables" . | fromYaml | default dict }}
+{{- $envVars = merge (include "zenml.storeEnvVariables" . | fromYaml | default dict) $envVars }}
+{{- $envVars = merge (include "zenml.serverEnvVariables" . | fromYaml | default dict) $envVars }}
+{{- $envVars = merge (include "zenml.secretsStoreEnvVariables" . | fromYaml | default dict) $envVars }}
+{{- $envVars = merge (include "zenml.backupSecretsStoreEnvVariables" . | fromYaml | default dict) $envVars }}
+{{- $envVars = merge ($server.environment | default dict) $envVars }}
+{{ $envVars | toYaml }}
+{{- end }}

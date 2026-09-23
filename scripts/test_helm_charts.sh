@@ -77,6 +77,7 @@ run_server_chart_tests() {
 
 main() {
     require_command helm
+    "${SCRIPT_DIR}/tests/test_deploy_helm_dependencies.sh"
     ensure_helm_unittest
 
     run_stack_chart_tests

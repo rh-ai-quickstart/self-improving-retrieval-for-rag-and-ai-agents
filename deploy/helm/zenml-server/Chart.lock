@@ -1,9 +1,9 @@
 dependencies:
 - name: zenml
-  repository: oci://public.ecr.aws/zenml
+  repository: file://../vendor/zenml
   version: 0.96.2
 - name: mysql
   repository: https://charts.bitnami.com/bitnami
   version: 11.1.19
-digest: sha256:07f8ecc925b4c938752932c9205bdcff9bd20e1351c647649c65210e37929ab5
-generated: "2026-08-21T13:25:20.299846-04:00"
+digest: sha256:e1da3576929ce3f6debec5772bb3e288baa5f385464f224f3967b4cc43fe490b
+generated: "2026-09-23T15:57:59.941838+03:00"

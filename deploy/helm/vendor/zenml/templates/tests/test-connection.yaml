@@ -1,0 +1,16 @@
+{{- $server := include "zenml.serverValues" . | fromYaml -}}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "zenml.fullname" . }}-test-connection"
+  labels:
+    {{- include "zenml.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "zenml.fullname" . }}:{{ $server.service.port }}']
+  restartPolicy: Never

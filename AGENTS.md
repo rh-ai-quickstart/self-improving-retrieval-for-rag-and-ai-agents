@@ -138,6 +138,9 @@ Keep these in mind before proposing changes:
 - **Ephemeral pod caches** — Hugging Face and Torch caches use `/tmp` paths.
 - **Credential lifetime** — Kubernetes, registry, and MLflow tokens default to 24h.
   `just run-pipeline` refreshes them automatically.
+- **Bundled ZenML chart** — an empty `ZENML_VERSION` uses the tested `0.96.2`
+  chart under `deploy/helm/vendor/zenml`; an explicit version opts into an
+  anonymous public-ECR chart download and must match the local ZenML client.
 - **POC, not production** — single-replica MinIO/MLflow, SQLite MLflow backend,
   shell-managed secrets, no HA/network-policy hardening. Do not over-engineer for
   production unless explicitly requested.

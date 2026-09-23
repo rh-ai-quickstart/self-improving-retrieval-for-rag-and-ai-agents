@@ -37,12 +37,7 @@ load_stack_config() {
     source "${config_file}"
 
     ZENML_PYTHON="${ZENML_PYTHON:-python}"
-    ZENML_VERSION="${ZENML_VERSION:-}"
-    if [[ -z "${ZENML_VERSION}" ]]; then
-        require_command "${ZENML_PYTHON}"
-        ZENML_VERSION="$("${ZENML_PYTHON}" -c 'import zenml; print(zenml.__version__)')" \
-            || die "Could not derive ZENML_VERSION from ${ZENML_PYTHON}."
-    fi
+    zenml_resolve_version
     ZENML_WORKLOAD_NAMESPACE="${ZENML_WORKLOAD_NAMESPACE:-zenml-workloads}"
     ZENML_ORCHESTRATOR_SA="${ZENML_ORCHESTRATOR_SA:-zenml-orchestrator}"
     ZENML_REGISTRY_PULL_SECRET="${ZENML_REGISTRY_PULL_SECRET:-openshift-registry-route-pull}"

@@ -104,14 +104,14 @@ components, local tooling, and required OpenShift permissions described below.
 - Helm 3.
 - `curl` and `openssl`.
 - A running local Docker daemon, the Docker CLI, and the Docker Python SDK.
-- A ZenML client version selected from the
-  [ZenML release history on PyPI](https://pypi.org/project/zenml/#history).
-  The scripts deploy the matching server version automatically. This POC was
-  validated with `0.96.2`; newer versions may require compatibility changes.
+- The ZenML client installed by this project. It is pinned to the same `0.96.2`
+  release as the tested Helm chart bundled with this quickstart.
 
 The client and cluster also need outbound access to the configured container
-registries, the ZenML Helm chart, Python package indexes, Hugging Face model and
-dataset repositories, and the OpenShift Routes created by this project.
+registries, Python package indexes, Hugging Face model and dataset repositories,
+and the OpenShift Routes created by this project. Public ECR access is required
+only when `ZENML_VERSION` explicitly selects a chart other than the bundled
+default.
 
 ### Required user permissions
 
@@ -150,14 +150,15 @@ python -m pip install --upgrade pip
 python -m pip install -e apps/
 ```
 
-The unpinned project dependency installs the newest ZenML release compatible
-with the local Python environment. To reproduce this POC with its validated
-version, install it explicitly before installing the project:
+The editable project installation above installs the validated ZenML `0.96.2`
+client matching the bundled server chart; no additional ZenML installation is
+required for the default path.
 
-```bash
-python -m pip install 'zenml[server]==0.96.2'
-python -m pip install -e apps/
-```
+By default, leaving `ZENML_VERSION` empty in `deployment.env` deploys that
+bundled, tested chart without downloading it from ECR. Advanced users can set
+an explicit version to fetch the corresponding chart anonymously from
+`public.ecr.aws`; that override is not validated by this quickstart and requires
+installing the same ZenML Python client version in `ZENML_PYTHON`.
 
 `make bootstrap-stack` installs the S3 and MLflow integrations through
 `zenml integration install s3 mlflow -y`. ZenML therefore controls the client
@@ -409,8 +410,9 @@ The scripts provision the infrastructure in two phases.
 
 **ZenML server project (`zenml` by default):**
 
-- The selected ZenML OSS version via the `zenml-server` umbrella Helm chart.
-  Version `0.96.2` is the reference version used to validate this POC.
+- ZenML OSS via the `zenml-server` umbrella Helm chart. The tested `0.96.2`
+  chart is bundled and used by default; an explicit `ZENML_VERSION` instead
+  downloads that version anonymously from public ECR.
 - A persistent MySQL database from the Bitnami MySQL subchart, using
   `docker.io/bitnamilegacy/mysql:8.4.3-debian-12-r0` (the versioned
   `docker.io/bitnami/mysql` tags were moved off Docker Hub).

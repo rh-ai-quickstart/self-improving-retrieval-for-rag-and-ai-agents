@@ -1,0 +1,26 @@
+{{- $server := include "zenml.serverValues" . | fromYaml -}}
+{{- if and $server.database.persistence.enabled (not $server.database.url) }}
+{{- $pvc_name := printf "%s-config" (include "zenml.fullname" .) -}}
+{{- $pvc := (lookup "v1" "PersistentVolumeClaim" .Release.Namespace $pvc_name) }}
+{{- if not $pvc }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $pvc_name }}
+  labels:
+    {{- include "zenml.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "pre-install,pre-upgrade"
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  {{- with $server.database.persistence.storageClassName }}
+  storageClassName: {{.}}
+  {{- end }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ $server.database.persistence.size }}
+{{- end }}
+{{- end }}

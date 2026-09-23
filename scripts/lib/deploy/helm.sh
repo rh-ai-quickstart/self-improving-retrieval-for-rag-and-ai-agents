@@ -225,12 +225,29 @@ deploy_build_server_helm_args() {
 }
 
 deploy_update_chart_dependencies() {
-    SERVER_CHART_PATH="${REPO_ROOT}/deploy/helm/zenml-server"
-    [[ -f "${SERVER_CHART_PATH}/Chart.yaml" ]] || die "Helm chart not found: ${SERVER_CHART_PATH}"
+    local source_chart_path="${REPO_ROOT}/deploy/helm/zenml-server"
+    [[ -f "${source_chart_path}/Chart.yaml" ]] \
+        || die "Helm chart not found: ${source_chart_path}"
 
-    info "Updating chart dependencies for ZenML ${ZENML_VERSION}."
-    if command -v python3 >/dev/null 2>&1; then
-        python3 - "${SERVER_CHART_PATH}/Chart.yaml" "${ZENML_VERSION}" <<'PY'
+    local runtime_chart_root
+    runtime_chart_root="$(mktemp -d "${TMPDIR:-/tmp}/zenml-server-chart.XXXXXX")"
+    cleanup_directories+=("${runtime_chart_root}")
+    cp -R "${source_chart_path}" "${runtime_chart_root}/zenml-server"
+    SERVER_CHART_PATH="${runtime_chart_root}/zenml-server"
+
+    if [[ "${ZENML_VERSION_SOURCE}" == bundled ]]; then
+        mkdir -p "${runtime_chart_root}/vendor"
+        cp -R "${REPO_ROOT}/deploy/helm/vendor/zenml" \
+            "${runtime_chart_root}/vendor/zenml"
+        info "Building dependencies with the bundled ZenML ${ZENML_VERSION} chart."
+        run_logged helm dependency update "${SERVER_CHART_PATH}"
+        success "Bundled ZenML chart dependencies are ready."
+        return 0
+    fi
+
+    require_command python3
+    local registry_config
+    python3 - "${SERVER_CHART_PATH}/Chart.yaml" "${ZENML_VERSION}" <<'PY'
 import sys
 from pathlib import Path
 
@@ -239,6 +256,8 @@ version = sys.argv[2]
 lines = chart_path.read_text(encoding="utf-8").splitlines()
 output = []
 in_zenml = False
+found_version = False
+found_repository = False
 for line in lines:
     if line.startswith("  - name: zenml"):
         in_zenml = True
@@ -246,16 +265,26 @@ for line in lines:
         continue
     if in_zenml and line.startswith("    version:"):
         output.append(f'    version: "{version}"')
-        in_zenml = False
+        found_version = True
+        continue
+    if in_zenml and line.startswith("    repository:"):
+        output.append("    repository: oci://public.ecr.aws/zenml")
+        found_repository = True
         continue
     if in_zenml and line.startswith("  - name:"):
         in_zenml = False
     output.append(line)
+if not found_version or not found_repository:
+    raise SystemExit("Could not update the ZenML dependency in Chart.yaml")
 chart_path.write_text("\n".join(output) + "\n", encoding="utf-8")
 PY
-    fi
-    run_logged helm dependency build "${SERVER_CHART_PATH}"
-    success "Chart dependencies are ready."
+
+    registry_config="${runtime_chart_root}/anonymous-registry-config.json"
+    printf '%s\n' '{"auths":{}}' > "${registry_config}"
+    info "Fetching user-selected ZenML ${ZENML_VERSION} anonymously from public ECR."
+    run_logged helm dependency update "${SERVER_CHART_PATH}" \
+        --registry-config "${registry_config}"
+    success "User-selected ZenML ${ZENML_VERSION} chart dependencies are ready."
 }
 
 deploy_install_helm() {

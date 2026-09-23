@@ -18,12 +18,7 @@ deploy_load_config() {
 
     ZENML_NAMESPACE="${ZENML_NAMESPACE:-zenml}"
     ZENML_PYTHON="${ZENML_PYTHON:-python}"
-    ZENML_VERSION="${ZENML_VERSION:-}"
-    if [[ -z "${ZENML_VERSION}" ]]; then
-        require_command "${ZENML_PYTHON}"
-        ZENML_VERSION="$("${ZENML_PYTHON}" -c 'import zenml; print(zenml.__version__)')" \
-            || die "Could not derive ZENML_VERSION from ${ZENML_PYTHON}."
-    fi
+    zenml_resolve_version
     ZENML_RELEASE="${ZENML_RELEASE:-zenml-server}"
     ZENML_SERVICE="${ZENML_SERVICE:-zenml-server}"
     ZENML_ROUTE="${ZENML_ROUTE:-zenml-server}"
@@ -50,7 +45,11 @@ deploy_load_config() {
 
     info "Resolved deployment configuration:"
     info "  OpenShift project: ${ZENML_NAMESPACE}"
-    info "  ZenML version:     ${ZENML_VERSION}"
+    if [[ "${ZENML_VERSION_SOURCE}" == bundled ]]; then
+        info "  ZenML version:     ${ZENML_VERSION} (tested bundled chart)"
+    else
+        info "  ZenML version:     ${ZENML_VERSION} (user-selected; anonymous ECR download)"
+    fi
     info "  Helm release:      ${ZENML_RELEASE}"
     info "  Route:             ${ZENML_ROUTE}"
     info "  Database Service:  ${ZENML_DB_SERVICE}"

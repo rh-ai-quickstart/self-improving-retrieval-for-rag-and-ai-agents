@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 
 cleanup_files=()
+cleanup_directories=()
 
 cleanup() {
-    local file
+    local file directory
     for file in "${cleanup_files[@]:-}"; do
         [[ -z "${file}" ]] && continue
         rm -f -- "${file}"
+    done
+    for directory in "${cleanup_directories[@]:-}"; do
+        [[ -z "${directory}" || ! -d "${directory}" ]] && continue
+        case "$(basename -- "${directory}")" in
+            zenml-server-chart.*) rm -rf -- "${directory}" ;;
+        esac
     done
     return 0
 }
