@@ -168,5 +168,5 @@ bootstrap_print_summary() {
     echo "    KServe model:        ${MODEL_SERVING_NAME} (created by the pipeline)"
     echo
     echo "Next commands:"
-    echo "    just validate-stack"
+    echo "    make validate-stack"
 }

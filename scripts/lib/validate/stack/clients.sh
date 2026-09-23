@@ -53,7 +53,7 @@ validate_stack_check_clients() {
         if [[ -n "${MLFLOW_VERSION}" ]]; then
             pass "ZenML-managed MLflow SDK is installed: ${MLFLOW_VERSION}"
         else
-            fail "MLflow SDK is unavailable. Run 'just bootstrap-stack' to install the ZenML MLflow integration."
+            fail "MLflow SDK is unavailable. Run 'make bootstrap-stack' to install the ZenML MLflow integration."
         fi
     fi
 }
