@@ -10,6 +10,6 @@ validate_stack_print_summary() {
 
     log_error "Validation result: FAIL — ${FAILURES} validation check(s) failed."
     echo "    ${FAILURES} validation check(s) failed." >&2
-    echo "    Reconcile the stack with: just bootstrap-stack" >&2
+    echo "    Reconcile the stack with: make bootstrap-stack" >&2
     exit 1
 }

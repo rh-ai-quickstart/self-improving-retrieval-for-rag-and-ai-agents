@@ -16,14 +16,14 @@ refresh_stack_credentials() {
     zenml status >/dev/null 2>&1 || die "The ZenML CLI is not authenticated to the deployed server."
     docker info >/dev/null 2>&1 || die "The local Docker daemon is not reachable."
     oc get project "${ZENML_WORKLOAD_NAMESPACE}" >/dev/null 2>&1 \
-        || die "Workload project not found: ${ZENML_WORKLOAD_NAMESPACE}. Run 'just bootstrap-stack' first."
+        || die "Workload project not found: ${ZENML_WORKLOAD_NAMESPACE}. Run 'make bootstrap-stack' first."
     oc get serviceaccount "${ZENML_ORCHESTRATOR_SA}" \
         -n "${ZENML_WORKLOAD_NAMESPACE}" >/dev/null 2>&1 \
-        || die "Service account not found: ${ZENML_ORCHESTRATOR_SA}. Run 'just bootstrap-stack' first."
+        || die "Service account not found: ${ZENML_ORCHESTRATOR_SA}. Run 'make bootstrap-stack' first."
     zenml service-connector describe "${ZENML_K8S_CONNECTOR}" >/dev/null 2>&1 \
-        || die "Kubernetes connector not found: ${ZENML_K8S_CONNECTOR}. Run 'just bootstrap-stack' first."
+        || die "Kubernetes connector not found: ${ZENML_K8S_CONNECTOR}. Run 'make bootstrap-stack' first."
     zenml experiment-tracker describe "${ZENML_EXPERIMENT_TRACKER}" >/dev/null 2>&1 \
-        || die "MLflow experiment tracker not found: ${ZENML_EXPERIMENT_TRACKER}. Run 'just bootstrap-stack' first."
+        || die "MLflow experiment tracker not found: ${ZENML_EXPERIMENT_TRACKER}. Run 'make bootstrap-stack' first."
 
     REGISTRY_HOST="$(oc get route "${OPENSHIFT_REGISTRY_ROUTE}" \
         -n "${OPENSHIFT_REGISTRY_NAMESPACE}" \

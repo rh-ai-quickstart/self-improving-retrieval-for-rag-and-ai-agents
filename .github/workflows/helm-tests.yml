@@ -7,7 +7,6 @@ on:
       - "scripts/test_helm_charts.sh"
       - ".github/workflows/helm-tests.yml"
       - "Makefile"
-      - "justfile"
   push:
     branches:
       - main
@@ -17,7 +16,6 @@ on:
       - "scripts/test_helm_charts.sh"
       - ".github/workflows/helm-tests.yml"
       - "Makefile"
-      - "justfile"
 
 jobs:
   test:

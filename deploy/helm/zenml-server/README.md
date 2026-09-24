@@ -2,7 +2,8 @@
 
 Umbrella chart for Phase 1 server infrastructure:
 
-- Upstream [ZenML](https://zenml.io/) server (OCI subchart)
+- Upstream [ZenML](https://zenml.io/) server. The tested `0.96.2` chart is
+  bundled under `deploy/helm/vendor/zenml` and used by default.
 - [Bitnami MySQL](https://github.com/bitnami/charts/tree/main/bitnami/mysql) for persistent metadata storage.
   The subchart (11.1.19) still names `docker.io/bitnami/mysql:8.4.3-debian-12-r0`,
   which Docker Hub removed. This chart overrides the image to
@@ -20,11 +21,18 @@ Install via the repository bootstrap script:
 make bootstrap-server
 ```
 
-Before the first install, chart dependencies are built automatically:
+Before the first install, chart dependencies are built automatically. The
+ZenML dependency is read locally; Helm still downloads the Bitnami MySQL
+dependency when it is not cached:
 
 ```bash
-helm dependency build deploy/helm/zenml-server
+helm dependency update deploy/helm/zenml-server
 ```
+
+Leave `ZENML_VERSION` empty to use the bundled, tested chart. Setting an
+explicit version opts into an anonymous download of that version from
+`oci://public.ecr.aws/zenml`; the bootstrap prepares this override in a
+temporary chart copy and does not modify the bundled default.
 
 Key values are supplied from `deployment.env` by
 `scripts/deploy_zenml_on_os.sh`.

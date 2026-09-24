@@ -22,8 +22,8 @@ Infrastructure is provisioned in two phases:
 
 | Phase | Command | Deploys |
 | --- | --- | --- |
-| 1 — ZenML server | `just bootstrap-server` | MySQL, ZenML OSS, OpenShift Route (`deploy/helm/zenml-server/`) |
-| 2 — Remote stack | `just bootstrap-stack` | RBAC, KServe permissions, MLflow, MinIO, registry (`deploy/helm/zenml-stack/`) + ZenML registrations |
+| 1 — ZenML server | `make bootstrap-server` | MySQL, ZenML OSS, OpenShift Route (`deploy/helm/zenml-server/`) |
+| 2 — Remote stack | `make bootstrap-stack` | RBAC, KServe permissions, MLflow, MinIO, registry (`deploy/helm/zenml-stack/`) + ZenML registrations |
 
 Phase 1 creates Kubernetes Secret `ZENML_DB_PASSWORD_SECRET` (default
 `zenml-db-password`) in `ZENML_NAMESPACE` **before** Helm. Then Helm runs
@@ -53,7 +53,7 @@ stack, reachable local Docker daemon, and outbound access to Hugging Face.
 ├── deploy/helm/              # OpenShift Helm charts (zenml-server, zenml-stack)
 ├── scripts/                  # Bash wrappers; lib/ holds shared helpers
 ├── deployment.env.example    # Template for deployment.env (copy, chmod 600, customize)
-├── justfile / Makefile       # User-facing commands (equivalent targets)
+├── Makefile                  # User-facing commands
 └── docs/images/              # Architecture diagrams referenced by README
 ```
 
@@ -74,7 +74,7 @@ stack, reachable local Docker daemon, and outbound access to Hugging Face.
 
 ## Commands agents should use
 
-Run from the repository root. Prefer `just` (also mirrored in `Makefile`).
+Run `make` commands from the repository root.
 
 ```bash
 # Setup (human must complete ZenML browser activation between phases 1 and 2)
@@ -82,26 +82,26 @@ cp deployment.env.example deployment.env && chmod 600 deployment.env
 python -m venv env && source env/bin/activate
 pip install -e apps/
 
-just bootstrap-server    # phase 1
+make bootstrap-server    # phase 1
 # zenml login https://<route-url>
-just bootstrap-stack     # phase 2
+make bootstrap-stack     # phase 2
 
 # Validate without modifying cluster state
-just validate
-just validate-server
-just validate-stack
+make validate
+make validate-server
+make validate-stack
 
 # Run the example pipeline (refreshes credentials first)
-just run-pipeline
+make run-pipeline
 
 # Validate deployed KServe search application
-just validate-model
+make validate-model
 
 # Teardown (stack first, then server)
-just delete
+make delete
 ```
 
-Override config file: `DEPLOYMENT_ENV=deployment.lab.env just bootstrap-server`
+Override config file: `DEPLOYMENT_ENV=deployment.lab.env make bootstrap-server`
 
 Helm-only checks (no cluster required for lint):
 
@@ -114,7 +114,8 @@ There is a retrieval contract test suite under `apps/tests/` and a GitHub Action
 workflow (`.github/workflows/apps-tests.yml`) that runs on pull requests and
 pushes to `main` and `dev`. Run `python -m pytest -q apps/tests`, use
 `make helm-lint` for chart edits, and, when a cluster is available, use the
-`just validate*` and `just run-pipeline` flow.
+`make validate`, `make validate-server`, `make validate-stack`, and
+`make run-pipeline` flow.
 
 ## Architecture constraints
 
@@ -137,7 +138,10 @@ Keep these in mind before proposing changes:
 - **CPU-only** — PyTorch CPU backend is configured in pipeline Docker settings.
 - **Ephemeral pod caches** — Hugging Face and Torch caches use `/tmp` paths.
 - **Credential lifetime** — Kubernetes, registry, and MLflow tokens default to 24h.
-  `just run-pipeline` refreshes them automatically.
+  `make run-pipeline` refreshes them automatically.
+- **Bundled ZenML chart** — an empty `ZENML_VERSION` uses the tested `0.96.2`
+  chart under `deploy/helm/vendor/zenml`; an explicit version opts into an
+  anonymous public-ECR chart download and must match the local ZenML client.
 - **POC, not production** — single-replica MinIO/MLflow, SQLite MLflow backend,
   shell-managed secrets, no HA/network-policy hardening. Do not over-engineer for
   production unless explicitly requested.
@@ -217,11 +221,11 @@ real credentials into tracked files.
 
 1. Add a `ModelConfig` entry in `apps/retrieval_poc/config.py`.
 2. If parallelism matters, adjust `PIPELINE_MAX_PARALLEL_STEPS` in `pipeline/definition.py`.
-3. Run `just run-pipeline` on a bootstrapped cluster.
+3. Run `make run-pipeline` on a bootstrapped cluster.
 
 ### Change benchmark size or random seed
 
-- Prefer env vars (`NUM_QUERIES`, `CORPUS_SIZE`, `SEED`) via `just run-pipeline`.
+- Prefer env vars (`NUM_QUERIES`, `CORPUS_SIZE`, `SEED`) via `make run-pipeline`.
 - Defaults are in `__main__.py` and step signatures under `pipeline/` and `retrieval/`.
 
 ### Change the selection metric
@@ -233,7 +237,7 @@ real credentials into tracked files.
 
 1. Check ZenML UI for step logs and artifact lineage.
 2. Inspect OpenShift pods in `ZENML_WORKLOAD_NAMESPACE`.
-3. Confirm credentials: `just refresh-stack-credentials`.
+3. Confirm credentials: `make refresh-stack-credentials`.
 4. Confirm Docker daemon reachable (`docker info`) for image build/push.
 5. For KServe issues, inspect the `InferenceService` named by `MODEL_SERVING_NAME`
    (default `retrieval-embedding`).
@@ -263,7 +267,7 @@ Validated reference environment (see README for full requirements):
 - ZenML 0.96.2 (pin with `pip install 'zenml[server]==0.96.2'` for reproduction)
 - Python 3.11+
 
-Required local tools: `bash`, `just` or `make`, `oc`, `helm`, `curl`, `openssl`,
+Required local tools: `bash`, `make`, `oc`, `helm`, `curl`, `openssl`,
 Python, Docker CLI + daemon, ZenML CLI.
 
 ## Documentation pointers

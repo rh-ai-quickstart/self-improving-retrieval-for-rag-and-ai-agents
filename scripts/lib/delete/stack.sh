@@ -129,5 +129,5 @@ delete_stack_print_summary() {
     echo "    ZenML server project:   retained"
     echo
     echo "To recreate the remote stack:"
-    echo "    just bootstrap-stack"
+    echo "    make bootstrap-stack"
 }

@@ -15,15 +15,7 @@ validate_server_load_config() {
 
     ZENML_NAMESPACE="${ZENML_NAMESPACE:-zenml}"
     ZENML_PYTHON="${ZENML_PYTHON:-python}"
-    ZENML_VERSION="${ZENML_VERSION:-}"
-    if [[ -z "${ZENML_VERSION}" ]]; then
-        if command -v "${ZENML_PYTHON}" >/dev/null 2>&1; then
-            ZENML_VERSION="$("${ZENML_PYTHON}" -c 'import zenml; print(zenml.__version__)' 2>/dev/null || true)"
-        fi
-        if [[ -z "${ZENML_VERSION}" ]]; then
-            die "ZENML_VERSION is empty and could not be derived from ${ZENML_PYTHON}."
-        fi
-    fi
+    zenml_resolve_version
     ZENML_RELEASE="${ZENML_RELEASE:-zenml-server}"
     ZENML_SERVICE="${ZENML_SERVICE:-zenml-server}"
     ZENML_ROUTE="${ZENML_ROUTE:-zenml-server}"
@@ -34,7 +26,7 @@ validate_server_load_config() {
     ZENML_DATABASE_URL="mysql://${ZENML_DB_USER}@${ZENML_DB_SERVICE}:3306/${ZENML_DB_NAME}"
 
     info "OpenShift project: ${ZENML_NAMESPACE}"
-    info "ZenML version:     ${ZENML_VERSION}"
+    info "ZenML version:     ${ZENML_VERSION} (${ZENML_VERSION_SOURCE})"
     info "Helm release:      ${ZENML_RELEASE}"
     info "ZenML Service:     ${ZENML_SERVICE}"
     info "ZenML Route:       ${ZENML_ROUTE}"

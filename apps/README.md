@@ -61,26 +61,25 @@ does not import ZenML.
 Run it from the repository root:
 
 ```bash
-just run-pipeline
+make run-pipeline
 ```
 
 For a fast end-to-end validation, use the smoke profile:
 
 ```bash
-just run-pipeline --smoke
+make run-pipeline PIPELINE_ARGS=--smoke
 ```
 
 The smoke profile evaluates 20 queries against 40 documents with `top_k=20`.
 With the current TechQA seed and chunking defaults, this produces 110 searchable
 chunks, or two corpus-encoding batches per candidate. It intentionally overrides
 `NUM_QUERIES`, `CORPUS_SIZE`, and `TOP_K`; omit `--smoke` for the configured/full
-benchmark. The equivalent Make command is
-`make run-pipeline PIPELINE_ARGS=--smoke`.
+benchmark.
 
 The final deployment step adds clickable `search_ui`, `search_api_docs`, and
 `health_endpoint` links to both the step and pipeline-run metadata in ZenML.
 To open the application, view the completed run, select `deploy_search_app`,
-open **Run Insights → Metadata**, and click `search_ui`. `just validate-model`
+open **Run Insights → Metadata**, and click `search_ui`. `make validate-model`
 provides a second path: it checks the deployment and prints the public URL.
 
 ![ZenML metadata containing the deployed search application links](../docs/images/zenml_search_app_metadata.png)
@@ -128,7 +127,7 @@ curl -sS -H 'Content-Type: application/json' \
   https://<search-route>/search
 ```
 
-`just validate-model` checks the InferenceService, admitted Route, HTML UI,
+`make validate-model` checks the InferenceService, admitted Route, HTML UI,
 search response shape, and embedding endpoint through a local port-forward.
 
 ## Configuration

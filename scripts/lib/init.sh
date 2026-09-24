@@ -15,3 +15,5 @@ source "${SCRIPT_DIR}/lib/output.sh"
 source "${SCRIPT_DIR}/lib/commands.sh"
 # shellcheck source=dns.sh
 source "${SCRIPT_DIR}/lib/dns.sh"
+# shellcheck source=zenml_version.sh
+source "${SCRIPT_DIR}/lib/zenml_version.sh"
