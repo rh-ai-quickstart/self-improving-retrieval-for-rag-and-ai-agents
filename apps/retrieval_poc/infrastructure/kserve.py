@@ -25,9 +25,9 @@ def deploy_search_service(
     bundle: dict[str, Any],
     deployment_name: str,
     timeout_seconds: int,
-    minio_endpoint: str,
-    minio_secret_name: str,
-    minio_client_image: str,
+    s3_endpoint: str,
+    s3_secret_name: str,
+    s3_client_image: str,
 ) -> dict[str, Any]:
     """Create or update KServe and expose its browser UI with a TLS Route."""
     if timeout_seconds <= 0:
@@ -42,9 +42,9 @@ def deploy_search_service(
         image=image,
         winner=winner,
         bundle=bundle,
-        minio_endpoint=minio_endpoint,
-        minio_secret_name=minio_secret_name,
-        minio_client_image=minio_client_image,
+        s3_endpoint=s3_endpoint,
+        s3_secret_name=s3_secret_name,
+        s3_client_image=s3_client_image,
         bucket=bucket,
         object_key=object_key,
     )
@@ -150,9 +150,9 @@ def _inference_manifest(
     image: str,
     winner: dict[str, Any],
     bundle: dict[str, Any],
-    minio_endpoint: str,
-    minio_secret_name: str,
-    minio_client_image: str,
+    s3_endpoint: str,
+    s3_secret_name: str,
+    s3_client_image: str,
     bucket: str,
     object_key: str,
 ) -> dict[str, Any]:
@@ -168,24 +168,45 @@ def _inference_manifest(
         "HF_HUB_CACHE": "/tmp/.cache/huggingface/hub",
         "TORCH_HOME": "/tmp/.cache/torch",
     }
-    secret_user = {
-        "name": "MINIO_ROOT_USER",
+    secret_access_key_id = {
+        "name": "AWS_ACCESS_KEY_ID",
         "valueFrom": {
             "secretKeyRef": {
-                "name": minio_secret_name,
-                "key": "MINIO_ROOT_USER",
+                "name": s3_secret_name,
+                "key": "AWS_ACCESS_KEY_ID",
             }
         },
     }
-    secret_password = {
-        "name": "MINIO_ROOT_PASSWORD",
+    secret_secret_access_key = {
+        "name": "AWS_SECRET_ACCESS_KEY",
         "valueFrom": {
             "secretKeyRef": {
-                "name": minio_secret_name,
-                "key": "MINIO_ROOT_PASSWORD",
+                "name": s3_secret_name,
+                "key": "AWS_SECRET_ACCESS_KEY",
             }
         },
     }
+    download_script = (
+        "set -euo pipefail\n"
+        "pip install --no-cache-dir -q boto3\n"
+        "python3 - <<'PY'\n"
+        "import os\n"
+        "import boto3\n"
+        "s3 = boto3.client(\n"
+        "    's3',\n"
+        "    endpoint_url=os.environ['S3_ENDPOINT'],\n"
+        "    aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],\n"
+        "    aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],\n"
+        "    region_name=os.environ.get('AWS_DEFAULT_REGION', 'us-east-1'),\n"
+        ")\n"
+        "s3.download_file(\n"
+        "    os.environ['S3_BUCKET'],\n"
+        "    os.environ['S3_OBJECT_KEY'],\n"
+        "    '/bundle/search-bundle.zip',\n"
+        ")\n"
+        "print('Downloaded search bundle from S3')\n"
+        "PY\n"
+    )
     return {
         "apiVersion": f"{KSERVE_GROUP}/{KSERVE_VERSION}",
         "kind": "InferenceService",
@@ -210,21 +231,17 @@ def _inference_manifest(
                 "initContainers": [
                     {
                         "name": "download-search-bundle",
-                        "image": minio_client_image,
-                        "command": ["/bin/sh", "-ec"],
-                        "args": [
-                            "mc alias set source \"$MINIO_ENDPOINT\" "
-                            "\"$MINIO_ROOT_USER\" \"$MINIO_ROOT_PASSWORD\"; "
-                            "mc cp \"source/$MINIO_BUCKET/$MINIO_OBJECT_KEY\" "
-                            "/bundle/search-bundle.zip"
-                        ],
+                        "image": s3_client_image,
+                        "command": ["/bin/bash", "-ec"],
+                        "args": [download_script],
                         "env": [
-                            {"name": "MC_CONFIG_DIR", "value": "/tmp/.mc"},
-                            {"name": "MINIO_ENDPOINT", "value": minio_endpoint},
-                            {"name": "MINIO_BUCKET", "value": bucket},
-                            {"name": "MINIO_OBJECT_KEY", "value": object_key},
-                            secret_user,
-                            secret_password,
+                            {"name": "HOME", "value": "/tmp"},
+                            {"name": "AWS_DEFAULT_REGION", "value": "us-east-1"},
+                            {"name": "S3_ENDPOINT", "value": s3_endpoint},
+                            {"name": "S3_BUCKET", "value": bucket},
+                            {"name": "S3_OBJECT_KEY", "value": object_key},
+                            secret_access_key_id,
+                            secret_secret_access_key,
                         ],
                         "volumeMounts": [
                             {"name": "search-bundle", "mountPath": "/bundle"}

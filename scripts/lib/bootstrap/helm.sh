@@ -21,8 +21,8 @@ bootstrap_verify_openshift_ai() {
     oc get clusterrole "${MLFLOW_INTEGRATION_CLUSTER_ROLE}" >/dev/null 2>&1 \
         || die "OpenShift AI MLflow integration ClusterRole not found: ${MLFLOW_INTEGRATION_CLUSTER_ROLE}"
 
-    oc get storageclass "${MINIO_STORAGE_CLASS}" >/dev/null 2>&1 \
-        || die "StorageClass not found: ${MINIO_STORAGE_CLASS}"
+    oc get storageclass "${S4_STORAGE_CLASS}" >/dev/null 2>&1 \
+        || die "StorageClass not found: ${S4_STORAGE_CLASS}"
     oc get storageclass "${MLFLOW_STORAGE_CLASS}" >/dev/null 2>&1 \
         || die "StorageClass not found for MLflow: ${MLFLOW_STORAGE_CLASS}"
     success "OpenShift AI KServe and MLflow operators are ready."
@@ -45,14 +45,21 @@ bootstrap_install_stack_chart() {
         --namespace "${ZENML_WORKLOAD_NAMESPACE}"
         --create-namespace
         --set "orchestrator.serviceAccountName=${ZENML_ORCHESTRATOR_SA}"
-        --set "minio.image=${MINIO_IMAGE}"
-        --set "minio.clientImage=${MINIO_CLIENT_IMAGE}"
-        --set "minio.secretName=${MINIO_SECRET_NAME}"
-        --set "minio.rootUser=${MINIO_ROOT_USER}"
-        --set "minio.storageClass=${MINIO_STORAGE_CLASS}"
-        --set "minio.storageSize=${MINIO_STORAGE_SIZE}"
-        --set "minio.bucket=${MINIO_BUCKET}"
-        --set "minio.routeName=${MINIO_ROUTE_NAME}"
+        --set "s4.enabled=true"
+        --set "s4.fullnameOverride=s4"
+        --set "s4.image.repository=${S4_IMAGE_REPOSITORY}"
+        --set "s4.image.tag=${S4_IMAGE_TAG}"
+        --set "s4.s3.accessKeyId=${S4_ACCESS_KEY_ID}"
+        --set "s4.auth.enabled=true"
+        --set "s4.auth.username=${S4_UI_AUTH_USERNAME}"
+        --set "s4.route.enabled=true"
+        --set "s4.route.s3Api.enabled=true"
+        --set "s4.storage.data.storageClass=${S4_STORAGE_CLASS}"
+        --set "s4.storage.data.size=${S4_STORAGE_SIZE}"
+        --set "s4Buckets.create=true"
+        --set "s4Buckets.names[0]=${S4_BUCKET}"
+        --set "jobImages.cli=${JOB_IMAGE_CLI}"
+        --set "jobImages.python=${JOB_IMAGE_PYTHON}"
         --set "kserve.roleName=${MODEL_SERVING_ROLE}"
         --set "kserve.roleBindingName=${MODEL_SERVING_ROLE_BINDING}"
         --set "mlflow.instance=${MLFLOW_INSTANCE}"
@@ -67,12 +74,15 @@ bootstrap_install_stack_chart() {
     helm_ensure_secrets_file "${STACK_CHART_PATH}"
     helm_args+=(--values "$(helm_secrets_file "${STACK_CHART_PATH}")")
 
-    if [[ -n "${MINIO_ROOT_PASSWORD}" ]]; then
-        helm_args+=(--set-string "minio.rootPassword=${MINIO_ROOT_PASSWORD}")
+    if [[ -n "${S4_SECRET_ACCESS_KEY}" ]]; then
+        helm_args+=(--set-string "s4.s3.secretAccessKey=${S4_SECRET_ACCESS_KEY}")
+    fi
+    if [[ -n "${S4_UI_AUTH_PASSWORD}" ]]; then
+        helm_args+=(--set-string "s4.auth.password=${S4_UI_AUTH_PASSWORD}")
     fi
 
     # Helm --wait confirms the release as a whole. Sequenced checks after
-    # install still enforce SA/RBAC, KServe, MLflow, MinIO, then the bucket Job.
+    # install still enforce SA/RBAC, KServe, MLflow, S4, then the bucket Job.
     run_logged helm "${helm_args[@]}" --wait --timeout 10m
     success "Helm release ${ZENML_STACK_RELEASE} is installed."
 }
@@ -129,27 +139,33 @@ bootstrap_wait_for_mlflow() {
     success "MLflow is available at ${MLFLOW_URL}; workload integration RBAC is configured."
 }
 
-bootstrap_wait_for_minio() {
-    section "Provisioning persistent MinIO"
+bootstrap_wait_for_s4() {
+    section "Provisioning persistent S4"
 
-    run_logged oc rollout status deployment/minio \
+    run_logged oc rollout status deployment/s4 \
         -n "${ZENML_WORKLOAD_NAMESPACE}" \
         --timeout=180s
-    MINIO_ROUTE_HOST="$(oc get route "${MINIO_ROUTE_NAME}" -n "${ZENML_WORKLOAD_NAMESPACE}" -o jsonpath='{.spec.host}')"
-    [[ -n "${MINIO_ROUTE_HOST}" ]] || die "MinIO Route was not found: ${MINIO_ROUTE_NAME}"
-    MINIO_ENDPOINT="https://${MINIO_ROUTE_HOST}"
+
+    S4_UI_ROUTE_HOST="$(oc get route "${S4_UI_ROUTE_NAME}" -n "${ZENML_WORKLOAD_NAMESPACE}" -o jsonpath='{.spec.host}')"
+    [[ -n "${S4_UI_ROUTE_HOST}" ]] || die "S4 UI Route was not found: ${S4_UI_ROUTE_NAME}"
+    S4_UI_ENDPOINT="https://${S4_UI_ROUTE_HOST}"
     curl --fail --silent --show-error --max-time 15 \
-        "${MINIO_ENDPOINT}/minio/health/ready" >/dev/null \
-        || die "MinIO Route health check failed: ${MINIO_ENDPOINT}"
-    success "MinIO is healthy at ${MINIO_ENDPOINT}."
+        "${S4_UI_ENDPOINT}/api" >/dev/null \
+        || die "S4 UI Route health check failed: ${S4_UI_ENDPOINT}/api"
+    success "S4 UI is healthy at ${S4_UI_ENDPOINT}."
+
+    S4_API_ROUTE_HOST="$(oc get route "${S4_API_ROUTE_NAME}" -n "${ZENML_WORKLOAD_NAMESPACE}" -o jsonpath='{.spec.host}')"
+    [[ -n "${S4_API_ROUTE_HOST}" ]] || die "S4 S3 API Route was not found: ${S4_API_ROUTE_NAME}"
+    S4_ENDPOINT="https://${S4_API_ROUTE_HOST}"
+    success "S4 S3 API Route is admitted at ${S4_ENDPOINT}."
 }
 
-bootstrap_wait_for_minio_bucket() {
+bootstrap_wait_for_s4_bucket() {
     section "Creating and smoke-testing the artifact bucket"
 
-    run_logged oc wait --for=condition=complete job/minio-bootstrap \
+    run_logged oc wait --for=condition=complete job/s4-bootstrap \
         -n "${ZENML_WORKLOAD_NAMESPACE}" \
-        --timeout=120s
-    oc logs job/minio-bootstrap -n "${ZENML_WORKLOAD_NAMESPACE}" --tail=20
-    success "Bucket ${MINIO_BUCKET} passed the MinIO write/read smoke test."
+        --timeout=180s
+    oc logs job/s4-bootstrap -n "${ZENML_WORKLOAD_NAMESPACE}" --tail=40
+    success "Bucket ${S4_BUCKET} passed the S4 write/read smoke test."
 }

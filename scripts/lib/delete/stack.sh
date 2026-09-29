@@ -51,7 +51,7 @@ delete_stack_load_and_show() {
 
 delete_stack_confirm() {
     section "Confirming destructive deletion"
-    echo "    WARNING: deleting the project permanently removes MinIO artifacts, images, and its PVC."
+    echo "    WARNING: deleting the project permanently removes S4 artifacts, images, and its PVC."
     echo
 
     if [[ -z "${ZENML_STACK_DELETE_CONFIRM}" ]]; then

@@ -1,0 +1,63 @@
+suite: S4 bucket bootstrap Job
+templates:
+  - s4-bootstrap-job.yaml
+release:
+  name: zenml-stack
+  namespace: zenml-workloads
+tests:
+  - it: renders bootstrap Job with UBI Python and OpenShift CLI images
+    set:
+      s4.enabled: true
+      s4Buckets.create: true
+      s4Buckets.names:
+        - zenml-artifacts
+      jobImages.cli: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+      jobImages.python: registry.redhat.io/ubi9/python-311:latest
+    template: s4-bootstrap-job.yaml
+    asserts:
+      - isKind:
+          of: Job
+      - equal:
+          path: metadata.name
+          value: s4-bootstrap
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: wait-for-s4
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: create-buckets
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: registry.redhat.io/ubi9/python-311:latest
+      - equal:
+          path: spec.template.spec.containers[0].env[?(@.name=="S4_ENDPOINT")].value
+          value: http://s4:7480
+      - equal:
+          path: spec.template.spec.containers[0].env[?(@.name=="S4_BUCKETS")].value
+          value: zenml-artifacts
+      - equal:
+          path: spec.template.spec.containers[0].env[?(@.name=="AWS_ACCESS_KEY_ID")].valueFrom.secretKeyRef.name
+          value: s4-credentials
+      - notExists:
+          path: metadata.annotations["helm.sh/hook"]
+
+  - it: skips bootstrap Job when bucket creation is disabled
+    set:
+      s4.enabled: true
+      s4Buckets.create: false
+    template: s4-bootstrap-job.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: skips bootstrap Job when S4 is disabled
+    set:
+      s4.enabled: false
+      s4Buckets.create: true
+    template: s4-bootstrap-job.yaml
+    asserts:
+      - hasDocuments:
+          count: 0

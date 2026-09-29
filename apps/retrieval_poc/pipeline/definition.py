@@ -83,10 +83,10 @@ def retrieval_model_selection_pipeline(
     chunk_overlap_words: int = 40,
     deployment_name: str = "retrieval-embedding",
     deployment_timeout: int = 600,
-    minio_endpoint: str = "http://minio:9000",
-    minio_secret_name: str = "minio-root",
-    minio_client_image: str = (
-        "quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z"
+    s3_endpoint: str = "http://s4:7480",
+    s3_secret_name: str = "s4-credentials",
+    s3_client_image: str = (
+        "registry.redhat.io/ubi9/python-311:latest"
     ),
 ) -> None:
     """Evaluate candidates, index the winner, and deploy the search app."""
@@ -119,7 +119,7 @@ def retrieval_model_selection_pipeline(
         bundle=bundle,
         deployment_name=deployment_name,
         timeout_seconds=deployment_timeout,
-        minio_endpoint=minio_endpoint,
-        minio_secret_name=minio_secret_name,
-        minio_client_image=minio_client_image,
+        s3_endpoint=s3_endpoint,
+        s3_secret_name=s3_secret_name,
+        s3_client_image=s3_client_image,
     )

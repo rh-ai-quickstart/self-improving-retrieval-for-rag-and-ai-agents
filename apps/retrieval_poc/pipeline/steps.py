@@ -176,10 +176,10 @@ def deploy_search_app(
     bundle: dict[str, Any],
     deployment_name: str = "retrieval-embedding",
     timeout_seconds: int = 600,
-    minio_endpoint: str = "http://minio:9000",
-    minio_secret_name: str = "minio-root",
-    minio_client_image: str = (
-        "quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z"
+    s3_endpoint: str = "http://s4:7480",
+    s3_secret_name: str = "s4-credentials",
+    s3_client_image: str = (
+        "registry.redhat.io/ubi9/python-311:latest"
     ),
 ) -> dict[str, Any]:
     """Deploy the indexed search app and publish links in ZenML."""
@@ -188,9 +188,9 @@ def deploy_search_app(
         bundle=bundle,
         deployment_name=deployment_name,
         timeout_seconds=timeout_seconds,
-        minio_endpoint=minio_endpoint,
-        minio_secret_name=minio_secret_name,
-        minio_client_image=minio_client_image,
+        s3_endpoint=s3_endpoint,
+        s3_secret_name=s3_secret_name,
+        s3_client_image=s3_client_image,
     )
     link_metadata = {
         "search_ui": Uri(str(result["ui_url"])),

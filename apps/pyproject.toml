@@ -8,6 +8,11 @@ dependencies = [
     "docker~=7.1.0",
     "sentence-transformers>=5,<6",
     "datasets>=4,<5",
+    # datasets requires fsspec<=2026.2.0; keep s3fs on the same calendar release
+    # so ZenML's S3 artifact store (s3fs) stays compatible after
+    # `zenml integration install s3`.
+    "fsspec[http]==2026.2.0",
+    "s3fs==2026.2.0",
     "faiss-cpu>=1.9,<2",
     "fastapi>=0.115,<1",
     "kubernetes>=25,<26",

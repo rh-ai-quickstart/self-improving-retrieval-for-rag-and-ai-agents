@@ -57,7 +57,7 @@ validate_stack_check_registrations() {
                 "${ZENML_WORKLOAD_NAMESPACE}" \
                 "${ZENML_ORCHESTRATOR_SA}" \
                 "${REGISTRY_HOST}" \
-                "${MINIO_ENDPOINT}" \
+                "${S4_ENDPOINT}" \
                 "${MLFLOW_URL}" <<'PY'
 import json
 import os
@@ -78,7 +78,7 @@ from zenml.enums import StackComponentType
     namespace,
     service_account,
     registry_host,
-    minio_endpoint,
+    s4_endpoint,
     mlflow_url,
 ) = sys.argv[1:]
 
@@ -116,9 +116,9 @@ client_kwargs = artifact_store.configuration.get("client_kwargs", {})
 if isinstance(client_kwargs, str):
     client_kwargs = json.loads(client_kwargs)
 endpoint = client_kwargs.get("endpoint_url")
-if minio_endpoint and endpoint != minio_endpoint:
+if s4_endpoint and endpoint != s4_endpoint:
     raise RuntimeError(
-        f"artifact-store endpoint is {endpoint!r}; expected {minio_endpoint!r}"
+        f"artifact-store endpoint is {endpoint!r}; expected {s4_endpoint!r}"
     )
 
 registry = client.get_stack_component(

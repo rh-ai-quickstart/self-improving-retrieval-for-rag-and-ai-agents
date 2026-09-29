@@ -65,6 +65,27 @@ and external software and model sources used by the example.
 
 *High-level component architecture and deployment boundaries.*
 
+Object storage is **[S4](https://github.com/rh-aiservices-bu/s4)** (S3-compatible), not MinIO:
+
+```mermaid
+flowchart LR
+  subgraph workload["zenml-workloads"]
+    Pipeline[ZenML pipeline pods] -->|http://s4:7480| S4[S4 S3 API :7480]
+    KServe[KServe init boto3] -->|http://s4:7480| S4
+    S4 --- UI[S4 UI :5000]
+  end
+  Laptop[ZenML CLI] -->|https://s4-api Route| S4
+  Admin[Browser] -->|https://s4 Route /api| UI
+```
+
+| Concern | Value |
+|---------|-------|
+| In-cluster S3 | `http://s4:7480` |
+| Credentials Secret | `s4-credentials` (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`) |
+| UI Route | `s4` (port 5000) |
+| S3 API Route | `s4-api` (for laptop ZenML registration) |
+| Default bucket | `zenml-artifacts` |
+
 
 ## Requirements
 

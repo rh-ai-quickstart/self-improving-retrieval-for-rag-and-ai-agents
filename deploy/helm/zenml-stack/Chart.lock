@@ -1,0 +1,6 @@
+dependencies:
+- name: s4
+  repository: file://charts/s4
+  version: 0.1.0
+digest: sha256:04ce0bd7a24236aca736a3b3d668ef77428a6367617e1995dca63e846642bf2c
+generated: "2026-09-29T10:01:53.44696-04:00"

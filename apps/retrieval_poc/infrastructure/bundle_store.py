@@ -11,7 +11,7 @@ def publish_search_bundle(bundle_bytes: bytes, digest: str) -> str:
     root = artifact_store.path.rstrip("/")
     if not root.startswith("s3://"):
         raise RuntimeError(
-            "Search serving currently requires the OpenShift S3/MinIO "
+            "Search serving currently requires the OpenShift S3/S4 "
             f"artifact store; active path is {root!r}."
         )
     uri = f"{root}/search-bundles/{digest}/search-bundle.zip"

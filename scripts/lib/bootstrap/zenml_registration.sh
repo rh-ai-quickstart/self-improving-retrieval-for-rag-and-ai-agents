@@ -59,15 +59,15 @@ print(base64.urlsafe_b64encode(certificate).decode())
     ZENML_SECRET_FILE="$(mktemp)"
     cleanup_files+=("${ZENML_SECRET_FILE}")
     chmod 600 "${ZENML_SECRET_FILE}"
-    oc get secret "${MINIO_SECRET_NAME}" -n "${ZENML_WORKLOAD_NAMESPACE}" -o json \
+    oc get secret "${S4_SECRET_NAME}" -n "${ZENML_WORKLOAD_NAMESPACE}" -o json \
         | python3 -c '
 import base64
 import json
 import sys
 secret = json.load(sys.stdin)["data"]
 values = {
-    "access_key_id": base64.b64decode(secret["MINIO_ROOT_USER"]).decode(),
-    "secret_access_key": base64.b64decode(secret["MINIO_ROOT_PASSWORD"]).decode(),
+    "access_key_id": base64.b64decode(secret["AWS_ACCESS_KEY_ID"]).decode(),
+    "secret_access_key": base64.b64decode(secret["AWS_SECRET_ACCESS_KEY"]).decode(),
 }
 json.dump(values, sys.stdout)
 ' > "${ZENML_SECRET_FILE}"
@@ -78,18 +78,18 @@ json.dump(values, sys.stdout)
         zenml secret create "${ZENML_ARTIFACT_SECRET}" --values="@${ZENML_SECRET_FILE}" >/dev/null
     fi
 
-    MINIO_CLIENT_KWARGS="$(printf '{"endpoint_url":"%s","region_name":"us-east-1"}' "${MINIO_ENDPOINT}")"
+    S4_CLIENT_KWARGS="$(printf '{"endpoint_url":"%s","region_name":"us-east-1"}' "${S4_ENDPOINT}")"
     if component_exists artifact-store "${ZENML_ARTIFACT_STORE}"; then
         zenml artifact-store update "${ZENML_ARTIFACT_STORE}" \
-            --path="s3://${MINIO_BUCKET}" \
+            --path="s3://${S4_BUCKET}" \
             --authentication_secret="${ZENML_ARTIFACT_SECRET}" \
-            --client_kwargs="${MINIO_CLIENT_KWARGS}" >/dev/null
+            --client_kwargs="${S4_CLIENT_KWARGS}" >/dev/null
     else
         zenml artifact-store register "${ZENML_ARTIFACT_STORE}" \
             --flavor=s3 \
-            --path="s3://${MINIO_BUCKET}" \
+            --path="s3://${S4_BUCKET}" \
             --authentication_secret="${ZENML_ARTIFACT_SECRET}" \
-            --client_kwargs="${MINIO_CLIENT_KWARGS}" >/dev/null
+            --client_kwargs="${S4_CLIENT_KWARGS}" >/dev/null
     fi
 
     if component_exists container-registry "${ZENML_CONTAINER_REGISTRY}"; then
@@ -155,8 +155,8 @@ bootstrap_print_summary() {
     echo "    OpenShift cluster:    ${OPENSHIFT_SERVER}"
     echo "    Workload project:    ${ZENML_WORKLOAD_NAMESPACE}"
     echo "    Orchestrator SA:     ${ZENML_ORCHESTRATOR_SA}"
-    echo "    MinIO endpoint:      ${MINIO_ENDPOINT}"
-    echo "    Artifact bucket:     s3://${MINIO_BUCKET}"
+    echo "    S4 S3 endpoint:      ${S4_ENDPOINT}"
+    echo "    Artifact bucket:     s3://${S4_BUCKET}"
     echo "    MLflow URL:          ${MLFLOW_URL}"
     echo "    Registry URI:        ${REGISTRY_URI}"
     echo "    ZenML stack:         ${ZENML_STACK} (active)"
