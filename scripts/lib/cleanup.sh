@@ -28,7 +28,7 @@ register_stack_cleanup() {
         for path in "${cleanup_files[@]:-}"; do
             [[ -z "${path}" ]] && continue
             if [[ -d "${path}" ]]; then
-                rm -f -- "${path}/MINIO_ROOT_USER" "${path}/MINIO_ROOT_PASSWORD"
+                rm -f -- "${path}/AWS_ACCESS_KEY_ID" "${path}/AWS_SECRET_ACCESS_KEY"
                 rmdir -- "${path}" 2>/dev/null || true
             else
                 rm -f -- "${path}"

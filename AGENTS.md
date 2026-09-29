@@ -15,7 +15,7 @@ Use this file to orient quickly. Human-facing deployment details live in
    reproducible corpus of IBM Technotes.
 2. **Evaluate candidates** — run up to three embedding models in parallel on OpenShift.
 3. **Select winner** — choose the model with the best `ndcg_at_10`.
-4. **Index** — encode title-plus-body chunks with the winner and store a versioned FAISS bundle in MinIO.
+4. **Index** — encode title-plus-body chunks with the winner and store a versioned FAISS bundle in S4.
 5. **Deploy** — create or update a KServe `InferenceService` and public OpenShift Route exposing the search UI and APIs.
 
 Infrastructure is provisioned in two phases:
@@ -23,7 +23,7 @@ Infrastructure is provisioned in two phases:
 | Phase | Command | Deploys |
 | --- | --- | --- |
 | 1 — ZenML server | `make bootstrap-server` | MySQL, ZenML OSS, OpenShift Route (`deploy/helm/zenml-server/`) |
-| 2 — Remote stack | `make bootstrap-stack` | RBAC, KServe permissions, MLflow, MinIO, registry (`deploy/helm/zenml-stack/`) + ZenML registrations |
+| 2 — Remote stack | `make bootstrap-stack` | RBAC, KServe permissions, MLflow, S4, registry (`deploy/helm/zenml-stack/`) + ZenML registrations |
 
 Phase 1 creates Kubernetes Secret `ZENML_DB_PASSWORD_SECRET` (default
 `zenml-db-password`) in `ZENML_NAMESPACE` **before** Helm. Then Helm runs
@@ -39,7 +39,7 @@ still applies to the release as a whole):
 ZenML Helm (db-migration) → ZenML Deployment → Route → `/health` then `/ready`.
 
 **Phase 2 wait/ready:** project/SA/RBAC `can-i` → KServe Role/RoleBinding →
-MLflow Available → MinIO rollout and Route health → MinIO bootstrap Job →
+MLflow Available → S4 rollout and Route health → S4 bootstrap Job →
 registry → ZenML component registration.
 
 Pipeline execution requires an activated ZenML server, authenticated CLI, bootstrapped
@@ -64,7 +64,7 @@ stack, reachable local Docker daemon, and outbound access to Hugging Face.
 | Add or change embedding candidates | `apps/retrieval_poc/config.py` |
 | Change dataset, chunking, metrics, or indexing | `apps/retrieval_poc/retrieval/` |
 | Change ZenML steps or pipeline runtime | `apps/retrieval_poc/pipeline/` |
-| Change MinIO/KServe/OpenShift adapters | `apps/retrieval_poc/infrastructure/` |
+| Change S4/KServe/OpenShift adapters | `apps/retrieval_poc/infrastructure/` |
 | Change search API or UI | `apps/retrieval_poc/search_app/` |
 | Change pipeline CLI/env overrides | `apps/retrieval_poc/__main__.py` |
 | Change OpenShift workload infra | `deploy/helm/zenml-stack/` |
@@ -131,7 +131,7 @@ Keep these in mind before proposing changes:
 - **Shared chunks** — all candidates and the winning FAISS index use the same
   deterministic title-plus-body word chunks so evaluation matches serving.
 - **Versioned bundle** — `index.faiss`, `chunks.json`, and `manifest.json` are
-  stored in MinIO under a content digest and downloaded by a KServe init container.
+  stored in S4 under a content digest and downloaded by a KServe init container.
 - **Explicit ZenML source root** — `apps/retrieval_poc/__main__.py` sets the
   repository root before importing the pipeline so generated images retain the
   `apps.retrieval_poc` package hierarchy.
@@ -142,7 +142,7 @@ Keep these in mind before proposing changes:
 - **Bundled ZenML chart** — an empty `ZENML_VERSION` uses the tested `0.96.2`
   chart under `deploy/helm/vendor/zenml`; an explicit version opts into an
   anonymous public-ECR chart download and must match the local ZenML client.
-- **POC, not production** — single-replica MinIO/MLflow, SQLite MLflow backend,
+- **POC, not production** — single-replica S4/MLflow, SQLite MLflow backend,
   shell-managed secrets, no HA/network-policy hardening. Do not over-engineer for
   production unless explicitly requested.
 
@@ -151,13 +151,15 @@ Keep these in mind before proposing changes:
 | Component | Registration name | Backend |
 | --- | --- | --- |
 | Orchestrator | `openshift-k8s` | Kubernetes in `ZENML_WORKLOAD_NAMESPACE` |
-| Artifact store | `openshift-minio` | MinIO PVC + Route |
+| Artifact store | `openshift-s4` | S4 PVC + UI Route `s4` + S3 API Route `s4-api`; in-cluster `http://s4:7480` |
 | Container registry | `openshift-internal` | OpenShift integrated registry |
 | Image builder | `openshift-local` | Local Docker on client machine |
 | Experiment tracker | `openshift-mlflow` | OpenShift AI MLflow (cluster-scoped) |
 | Active stack | `openshift` | Combines the above |
 
-Default namespaces: `zenml` (server), `zenml-workloads` (pipeline pods, MinIO, KServe).
+Default namespaces: `zenml` (server), `zenml-workloads` (pipeline pods, S4, KServe).
+
+S4 credentials Secret: `s4-credentials`. Pipeline / KServe defaults: `S4_INCLUSTER_ENDPOINT=http://s4:7480`, `S4_SECRET_NAME=s4-credentials`, `S4_CLIENT_IMAGE=registry.redhat.io/ubi9/python-311:latest` (boto3 download init — not `minio/mc`).
 
 ## Coding conventions
 
@@ -173,7 +175,8 @@ Default namespaces: `zenml` (server), `zenml-workloads` (pipeline pods, MinIO, K
 - Selection metric default: `ndcg_at_10` in `select_best_model`.
 - Keep pipeline parameters wired through `__main__.py` env vars when exposing runtime
   overrides (`NUM_QUERIES`, `CORPUS_SIZE`, `TOP_K`, `SEED`, `QUERY_SPLIT`,
-  `MODEL_SERVING_NAME`, `MODEL_SERVING_TIMEOUT`).
+  `MODEL_SERVING_NAME`, `MODEL_SERVING_TIMEOUT`, `S4_INCLUSTER_ENDPOINT`,
+  `S4_SECRET_NAME`, `S4_CLIENT_IMAGE`).
 
 When adding a candidate model in `config.py`, set `query_prefix` / `document_prefix`
 when the model requires them (see existing BGE and E5 entries).
@@ -198,7 +201,7 @@ When changing Docker/runtime behavior, update **both** `pipeline/definition.py`
 - `zenml-server` includes Bitnami MySQL subchart; pin the image to
   `docker.io/bitnamilegacy/mysql:8.4.3-debian-12-r0` in `values.yaml` and
   `values-openshift.yaml` (`docker.io/bitnami/mysql` versioned tags 404).
-  `zenml-stack` provisions MinIO, RBAC, optional MLflow CR, ImageStream,
+  `zenml-stack` provisions S4, RBAC, optional MLflow CR, ImageStream,
   registry pull secret templates.
 - After chart template changes, run `make helm-lint`.
 
@@ -244,7 +247,7 @@ real credentials into tracked files.
 
 ### Extend infrastructure
 
-- **Helm-only resources** (MinIO sizing, RBAC, storage class): edit chart templates/values
+- **Helm-only resources** (S4 sizing, RBAC, storage class): edit chart templates/values
   and bootstrap scripts if new values must flow from `deployment.env`.
 - **ZenML registrations**: changes usually belong in `scripts/lib/bootstrap/zenml_registration.sh`
   and validation under `scripts/lib/validate/stack/`.

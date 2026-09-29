@@ -26,8 +26,8 @@ source "${SCRIPT_DIR}/lib/validate/stack/project.sh"
 source "${SCRIPT_DIR}/lib/validate/stack/kserve.sh"
 # shellcheck source=lib/validate/stack/mlflow.sh
 source "${SCRIPT_DIR}/lib/validate/stack/mlflow.sh"
-# shellcheck source=lib/validate/stack/minio.sh
-source "${SCRIPT_DIR}/lib/validate/stack/minio.sh"
+# shellcheck source=lib/validate/stack/s4.sh
+source "${SCRIPT_DIR}/lib/validate/stack/s4.sh"
 # shellcheck source=lib/validate/stack/registry.sh
 source "${SCRIPT_DIR}/lib/validate/stack/registry.sh"
 # shellcheck source=lib/validate/stack/registrations.sh
@@ -40,7 +40,7 @@ validate_stack_check_clients
 validate_stack_check_project
 validate_stack_check_kserve
 validate_stack_check_mlflow
-validate_stack_check_minio
+validate_stack_check_s4
 validate_stack_check_registry
 validate_stack_check_registrations
 validate_stack_print_summary

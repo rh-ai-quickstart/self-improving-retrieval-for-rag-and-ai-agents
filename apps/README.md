@@ -27,7 +27,7 @@ apps/
     │   ├── evaluation.py           # Document-level IR metrics
     │   └── indexing.py             # FAISS bundle build/load contract
     ├── infrastructure/
-    │   ├── bundle_store.py         # Versioned bundle persistence in MinIO
+    │   ├── bundle_store.py         # Versioned bundle persistence in S4
     │   └── kserve.py               # InferenceService and Route adapter
     └── search_app/
         ├── app.py                  # FastAPI endpoints and UI hosting
@@ -54,9 +54,9 @@ does not import ZenML.
 5. Re-encode the shared chunks with the winner and build a normalized
    `faiss.IndexFlatIP` index.
 6. Store a content-addressed ZIP bundle (`index.faiss`, `chunks.json`, and
-   `manifest.json`) in the active MinIO artifact store.
+   `manifest.json`) in the active S4 artifact store.
 7. Deploy the same generated pipeline image to KServe. An init container copies
-   the selected bundle from MinIO, and an OpenShift Route exposes the UI.
+   the selected bundle from S4, and an OpenShift Route exposes the UI.
 
 Run it from the repository root:
 
@@ -90,7 +90,7 @@ There is no committed Dockerfile. ZenML generates and pushes the image using
 the settings in `pipeline/definition.py`. `apps/pyproject.toml` is the single
 dependency source for both local installation and the generated image. It
 includes Sentence Transformers, CPU PyTorch, FAISS, FastAPI, Kubernetes, and
-the ZenML integrations used for MLflow and S3/MinIO.
+the ZenML integrations used for MLflow and S3/S4.
 
 ZenML exports the project dependencies with `uv pip compile` for the reference
 x86_64 manylinux target and explicitly selects the CPU PyTorch backend. This
@@ -145,8 +145,11 @@ search response shape, and embedding endpoint through a local port-forward.
 | `MODEL_SERVING_ROUTE` | `retrieval-embedding-ui` | OpenShift Route for the search UI |
 | `MODEL_SERVING_TIMEOUT` | `600` | Readiness timeout in seconds |
 
-MinIO image and Secret names are read from the existing deployment environment.
-The in-cluster MinIO endpoint defaults to `http://minio:9000`.
+S4 image and Secret names are read from the existing deployment environment.
+The in-cluster S4 endpoint defaults to `http://s4:7480`. Credentials come from
+Secret `s4-credentials` (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`). The
+KServe init container downloads the search bundle with UBI Python + boto3
+(`S4_CLIENT_IMAGE`), not `minio/mc`.
 
 ## Local checks
 
