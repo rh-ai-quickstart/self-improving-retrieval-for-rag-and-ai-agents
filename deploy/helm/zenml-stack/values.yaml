@@ -3,19 +3,44 @@
 orchestrator:
   serviceAccountName: zenml-orchestrator
 
-minio:
+# Images for Jobs / initContainers — avoid Docker Hub (rate limits on OpenShift)
+jobImages:
+  cli: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+  python: registry.redhat.io/ubi9/python-311:latest
+  shell: registry.redhat.io/ubi9/ubi-minimal:latest
+
+# S4 (Super Simple Storage Service) — vendored from rh-aiservices-bu/s4
+# https://github.com/rh-aiservices-bu/s4 — S3 API :7480, Web UI :5000
+s4:
   enabled: true
-  image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-  clientImage: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
-  secretName: minio-root
-  rootUser: zenml-admin
-  # Password is supplied through secrets.yaml or deployment.env.
-  # Leave empty to auto-generate on first install when the Secret does not exist.
-  rootPassword: ""
-  storageClass: gp3-csi
-  storageSize: 10Gi
-  bucket: zenml-artifacts
-  routeName: minio-s3
+  fullnameOverride: s4
+  image:
+    repository: quay.io/rh-aiservices-bu/s4
+    tag: "0.3.2"
+    pullPolicy: IfNotPresent
+  s3:
+    accessKeyId: s4admin
+    secretAccessKey: s4secret
+  auth:
+    enabled: true
+    username: admin
+    # Override via secrets.yaml / deployment.env — do not commit production passwords.
+    password: changeme
+  route:
+    enabled: true
+    s3Api:
+      # Required so ZenML CLI on the laptop can register the S3 artifact store.
+      enabled: true
+  storage:
+    data:
+      storageClass: gp3-csi
+      size: 10Gi
+
+# Parent chart Job: create S3 buckets on S4 (regular Job, not a Helm hook)
+s4Buckets:
+  create: true
+  names:
+    - zenml-artifacts
 
 kserve:
   enabled: true
