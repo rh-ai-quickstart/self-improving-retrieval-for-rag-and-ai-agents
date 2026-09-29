@@ -58,3 +58,18 @@ You can also supply `S4_SECRET_ACCESS_KEY` / `S4_UI_AUTH_PASSWORD` through
 | UI Route | `s4` |
 | S3 API Route | `s4-api` (enabled so ZenML CLI can register the artifact store) |
 | Default bucket | `zenml-artifacts` |
+
+## Upgrading from MinIO
+
+A prior `zenml-stack` install that deployed hand-rolled MinIO (`deployment/minio`,
+Secret `minio-root`, Route `minio-s3`, Job `minio-bootstrap`) will not delete those
+resources automatically when you upgrade to S4. After `helm upgrade` (or
+`make bootstrap-stack`):
+
+1. Confirm S4 is healthy (`deployment/s4`, Routes `s4` / `s4-api`, Job `s4-bootstrap`).
+2. Re-run ZenML registration so the artifact store points at `https://<s4-api>/`
+   with credentials from `s4-credentials` (`openshift-s4` / `s4-artifact-store`).
+3. Remove leftover MinIO objects when ready (`deployment/minio`, `pvc/minio-data`,
+   Secret `minio-root`, Route `minio-s3`, Job `minio-bootstrap`) — preferably via a
+   deliberate cleanup, not by leaving dual stores enabled.
+4. Refresh local `deployment.env` from `deployment.env.example` (`S4_*` vars).
