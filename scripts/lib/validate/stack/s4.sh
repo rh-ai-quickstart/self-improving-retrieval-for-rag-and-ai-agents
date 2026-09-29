@@ -3,8 +3,9 @@
 validate_stack_check_s4() {
     section "Checking S4 and artifact storage"
     S4_ENDPOINT=""
-    if [[ "${OC_AVAILABLE}" != true || "${WORKLOAD_PROJECT_AVAILABLE}" != true ]]; then
-        skip "S4 checks require the workload project."
+    S4_UI_ENDPOINT=""
+    if [[ "${OC_AVAILABLE}" != true ]]; then
+        skip "S4 checks require an authenticated oc CLI."
     else
         S4_DESIRED="$(oc get deployment s4 -n "${ZENML_WORKLOAD_NAMESPACE}" -o jsonpath='{.spec.replicas}' 2>/dev/null || true)"
         S4_AVAILABLE="$(oc get deployment s4 -n "${ZENML_WORKLOAD_NAMESPACE}" -o jsonpath='{.status.availableReplicas}' 2>/dev/null || true)"

@@ -40,6 +40,11 @@ bootstrap_check_prerequisites() {
 
     info "Installing the required ZenML integration dependencies."
     zenml integration install s3 mlflow -y
+    # zenml may pull a newer s3fs that conflicts with datasets' fsspec cap;
+    # re-apply the pins from apps/pyproject.toml.
+    "${ZENML_PYTHON}" -m pip install -q \
+        'fsspec[http]==2026.2.0' \
+        's3fs==2026.2.0'
     success "ZenML S3 and MLflow integration dependencies are installed."
 
     "${ZENML_PYTHON}" -c 'import docker; assert docker.from_env().ping()' >/dev/null \
