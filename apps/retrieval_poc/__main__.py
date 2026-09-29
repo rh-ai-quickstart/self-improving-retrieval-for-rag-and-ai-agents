@@ -82,11 +82,11 @@ def main() -> None:
             "retrieval-embedding",
         ),
         deployment_timeout=int(os.getenv("MODEL_SERVING_TIMEOUT", "600")),
-        minio_endpoint=os.getenv("MINIO_ENDPOINT", "http://minio:9000"),
-        minio_secret_name=os.getenv("MINIO_SECRET_NAME", "minio-root"),
-        minio_client_image=os.getenv(
-            "MINIO_CLIENT_IMAGE",
-            "quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z",
+        s3_endpoint=os.getenv("S4_INCLUSTER_ENDPOINT", "http://s4:7480"),
+        s3_secret_name=os.getenv("S4_SECRET_NAME", "s4-credentials"),
+        s3_client_image=os.getenv(
+            "S4_CLIENT_IMAGE",
+            "registry.redhat.io/ubi9/python-311:latest",
         ),
     )
 

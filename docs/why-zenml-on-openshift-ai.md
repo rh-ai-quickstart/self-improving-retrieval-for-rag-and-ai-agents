@@ -127,7 +127,7 @@ where the work runs and is served. In this quickstart the responsibilities are:
 | Model serving | OpenShift AI KServe |
 | Experiment tracking | OpenShift AI MLflow |
 | Pipeline definition, runtime decisions, and execution state | ZenML |
-| Versioned pipeline artifacts | ZenML artifact management backed by MinIO |
+| Versioned pipeline artifacts | ZenML artifact management backed by S4 |
 | Search experience | FastAPI, Sentence Transformers, and FAISS |
 
 The active ZenML stack uses the Kubernetes orchestrator directly and does not
