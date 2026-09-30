@@ -9,8 +9,9 @@ jobImages:
   python: registry.redhat.io/ubi9/python-311:latest
   shell: registry.redhat.io/ubi9/ubi-minimal:latest
 
-# S4 (Super Simple Storage Service) — vendored from rh-aiservices-bu/s4
-# https://github.com/rh-aiservices-bu/s4 — S3 API :7480, Web UI :5000
+# aws-compatible-storage (S4-backed) from ai-architecture-charts — values key is "s4" via Chart alias
+# Runtime: quay.io/rh-aiservices-bu/s4 — S3 API :7480, Web UI :5000
+# Chart: https://github.com/rh-ai-quickstart/ai-architecture-charts/tree/main/aws-compatible-storage
 s4:
   enabled: true
   fullnameOverride: s4
@@ -36,7 +37,7 @@ s4:
       storageClass: gp3-csi
       size: 10Gi
 
-# Parent chart Job: create S3 buckets on S4 (regular Job, not a Helm hook)
+# Parent chart Job: create S3 buckets (not part of the aws-compatible-storage subchart)
 s4Buckets:
   create: true
   names:

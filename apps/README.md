@@ -105,6 +105,9 @@ uv pip install --no-deps ./apps
 This makes the static UI and `apps.retrieval_poc.search_app` importable when
 KServe starts Uvicorn directly. The entry point sets the repository source root
 before importing the decorated pipeline so ZenML preserves the package layout.
+It also defaults `USE_TF=0`, `USE_TORCH=1`, and `TRANSFORMERS_NO_TF=1` so a
+host TensorFlow install cannot hang the local submit CLI during Transformers
+import.
 
 ## Search API and UI
 

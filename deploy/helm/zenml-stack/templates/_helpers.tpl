@@ -28,28 +28,29 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-S4 fullname (matches s4.fullnameOverride / fullnameOverride: s4)
+aws-compatible-storage (S4) fullname — matches alias "s4" + fullnameOverride: s4
+Parent helpers: subchart templates use aws-compatible-storage.* with the subchart context.
 */}}
 {{- define "s4.fullname" -}}
 s4
 {{- end }}
 
 {{/*
-S4 credentials Secret name — chart creates {fullname}-credentials with AWS_* keys
+Credentials Secret — aws-compatible-storage creates {fullname}-credentials with AWS_* keys
 */}}
 {{- define "s4.secretName" -}}
 {{- printf "%s-credentials" (include "s4.fullname" .) }}
 {{- end }}
 
 {{/*
-S4 S3 API port
+S3 API port (aws-compatible-storage / S4)
 */}}
 {{- define "s4.apiPort" -}}
 7480
 {{- end }}
 
 {{/*
-S4 web UI port (readiness probe path /api)
+Web UI port (readiness probe path /api)
 */}}
 {{- define "s4.uiPort" -}}
 5000

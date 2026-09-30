@@ -151,7 +151,7 @@ Keep these in mind before proposing changes:
 | Component | Registration name | Backend |
 | --- | --- | --- |
 | Orchestrator | `openshift-k8s` | Kubernetes in `ZENML_WORKLOAD_NAMESPACE` |
-| Artifact store | `openshift-s4` | S4 PVC + UI Route `s4` + S3 API Route `s4-api`; in-cluster `http://s4:7480` |
+| Artifact store | `openshift-s4` | aws-compatible-storage (S4) PVC + UI Route `s4` + S3 API Route `s4-api`; in-cluster `http://s4:7480` |
 | Container registry | `openshift-internal` | OpenShift integrated registry |
 | Image builder | `openshift-local` | Local Docker on client machine |
 | Experiment tracker | `openshift-mlflow` | OpenShift AI MLflow (cluster-scoped) |
@@ -177,6 +177,9 @@ S4 credentials Secret: `s4-credentials`. Pipeline / KServe defaults: `S4_INCLUST
   overrides (`NUM_QUERIES`, `CORPUS_SIZE`, `TOP_K`, `SEED`, `QUERY_SPLIT`,
   `MODEL_SERVING_NAME`, `MODEL_SERVING_TIMEOUT`, `S4_INCLUSTER_ENDPOINT`,
   `S4_SECRET_NAME`, `S4_CLIENT_IMAGE`).
+- Local submit CLI (`python -m apps.retrieval_poc`) sets `USE_TF=0` /
+  `USE_TORCH=1` / `TRANSFORMERS_NO_TF=1` before importing steps so a host
+  TensorFlow install cannot hang Transformers import (Abseil mutex).
 
 When adding a candidate model in `config.py`, set `query_prefix` / `document_prefix`
 when the model requires them (see existing BGE and E5 entries).

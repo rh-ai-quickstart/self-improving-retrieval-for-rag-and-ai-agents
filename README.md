@@ -65,7 +65,7 @@ and external software and model sources used by the example.
 
 *High-level component architecture and deployment boundaries.*
 
-Object storage is **[S4](https://github.com/rh-aiservices-bu/s4)** (S3-compatible), not MinIO:
+Object storage is **[aws-compatible-storage](https://github.com/rh-ai-quickstart/ai-architecture-charts/tree/main/aws-compatible-storage)** ([S4](https://github.com/rh-aiservices-bu/s4)-backed, S3-compatible), not MinIO:
 
 ```mermaid
 flowchart LR
@@ -448,7 +448,7 @@ Deployment, then the Route and `/health`.
 | ZenML component | Implementation |
 | --- | --- |
 | Orchestrator | Kubernetes workloads running under a dedicated service account |
-| Artifact store | Single-replica S4 ([Super Simple Storage Service](https://github.com/rh-aiservices-bu/s4)) with a persistent bucket (`zenml-artifacts`); in-cluster `http://s4:7480`, UI Route `s4`, S3 API Route `s4-api` |
+| Artifact store | Single-replica [aws-compatible-storage](https://github.com/rh-ai-quickstart/ai-architecture-charts/tree/main/aws-compatible-storage) ([S4](https://github.com/rh-aiservices-bu/s4)) with a persistent bucket (`zenml-artifacts`); in-cluster `http://s4:7480`, UI Route `s4`, S3 API Route `s4-api` |
 | Container registry | OpenShift integrated image registry |
 | Image builder | Local Docker builder on the client machine |
 | Experiment tracker | OpenShift AI MLflow |

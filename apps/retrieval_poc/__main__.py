@@ -14,6 +14,18 @@ SMOKE_CORPUS_SIZE = 40
 SMOKE_TOP_K = 20
 
 
+def _prefer_cpu_torch() -> None:
+    """Skip TensorFlow during local CLI import (PyTorch + sentence-transformers).
+
+    Hugging Face Transformers auto-detects an installed TensorFlow wheel and can
+    hang on Abseil mutex init. Pipeline compute runs on OpenShift with CPU
+    PyTorch; the submitter only needs Torch backends for import side effects.
+    """
+    os.environ.setdefault("USE_TF", "0")
+    os.environ.setdefault("USE_TORCH", "1")
+    os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
+
+
 def _configure_source_root() -> Path:
     """Keep the repository package layout in ZenML build contexts."""
     project_root = Path(__file__).resolve().parents[2]
@@ -45,6 +57,7 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     """Configure the source tree and submit the retrieval pipeline."""
     args = _parse_args()
+    _prefer_cpu_torch()
     _configure_source_root()
 
     # Configure the source root before importing the decorated pipeline. This
