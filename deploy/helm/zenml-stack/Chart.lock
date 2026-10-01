@@ -1,6 +1,6 @@
 dependencies:
-- name: s4
-  repository: file://charts/s4
+- name: aws-compatible-storage
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.1.0
-digest: sha256:04ce0bd7a24236aca736a3b3d668ef77428a6367617e1995dca63e846642bf2c
-generated: "2026-09-29T10:01:53.44696-04:00"
+digest: sha256:becb949b86ef5e9b23edf289905fa75e9c5d0dbe0a8106df36f53af853e5f901
+generated: "2026-09-30T13:34:59.902232-04:00"
