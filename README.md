@@ -114,7 +114,7 @@ components, local tooling, and required OpenShift permissions described below.
 - OpenShift AI KServe and MLflow Operator components in the `Managed` state.
 - The KServe `InferenceService` and OpenShift AI `MLflow` custom resources.
 - The OpenShift integrated image registry in the `Managed` state.
-- Storage classes for S4 and MLflow. Both default to `gp3-csi` and can be
+- Storage classes for object storage and MLflow. Both default to `gp3-csi` and can be
   changed in `deployment.env`.
 
 **Local tools:**
@@ -183,7 +183,7 @@ installing the same ZenML Python client version in `ZENML_PYTHON`.
 
 `make bootstrap-stack` installs the S3 and MLflow integrations through
 `zenml integration install s3 mlflow -y`. ZenML therefore controls the client
-dependency sets used for the S4 artifact store and MLflow experiment
+dependency sets used for the artifacts object store and MLflow experiment
 tracking.
 
 Confirm that `oc` is authenticated and that the local Docker daemon is
@@ -274,7 +274,7 @@ submission only. Use `make run-pipeline PIPELINE_ARGS=--smoke` when using Make.
 The command refreshes the short-lived stack credentials, builds and pushes the
 pipeline image, and submits the run to the OpenShift-backed ZenML stack. The
 pipeline evaluates its configured embedding candidates, records the experiment
-in MLflow, selects a winner, builds and stores a FAISS search bundle in S4,
+in MLflow, selects a winner, builds and stores a FAISS search bundle in object storage,
 then deploys it as a KServe `InferenceService` with an OpenShift Route. The
 final ZenML step and pipeline-run metadata contain a clickable link to the UI.
 
@@ -356,7 +356,7 @@ make delete
 ```
 
 Deletion requires explicit confirmation. It removes the dedicated workload
-project, including S4 artifacts, pipeline images, and its PVC, and then
+project, including object storage artifacts, pipeline images, and its PVC, and then
 removes the ZenML server, MySQL database, and their PVCs.
 
 The shared cluster-scoped MLflow instance and the integrated registry's default
@@ -381,13 +381,13 @@ make delete-server
 │   └── retrieval_poc/
 │       ├── pipeline/         # Dynamic ZenML definition and decorated steps
 │       ├── retrieval/        # Dataset, chunking, metrics, and FAISS bundle
-│       ├── infrastructure/   # S4 and KServe/OpenShift adapters
+│       ├── infrastructure/   # Object storage and KServe/OpenShift adapters
 │       ├── search_app/       # FastAPI API and static browser UI
 │       └── __main__.py       # Pipeline entry point (`python -m apps.retrieval_poc`)
 ├── deploy/
 │   └── helm/
 │       ├── zenml-server/     # Umbrella chart: ZenML + Bitnami MySQL + Route
-│       └── zenml-stack/      # Workload chart: S4, RBAC, MLflow, registry
+│       └── zenml-stack/      # Workload chart: Object storage, RBAC, MLflow, registry
 ├── scripts/                  # Thin wrappers around Helm, ZenML CLI, and validation
 ├── docs/images/              # Architecture diagrams and screenshots
 ├── deployment.env.example    # Deployment and stack configuration example
@@ -399,7 +399,7 @@ Phase 1 installs the [`deploy/helm/zenml-server/`](deploy/helm/zenml-server/)
 umbrella chart (upstream ZenML, Bitnami MySQL, OpenShift Route), then waits for
 MySQL, the ZenML Deployment, the Route, and `/health`. Phase 2 installs
 [`deploy/helm/zenml-stack/`](deploy/helm/zenml-stack/), waits for MLflow then
-S4, and registers ZenML components with the local CLI.
+object storage, and registers ZenML components with the local CLI.
 
 ## References
 
@@ -455,9 +455,9 @@ Deployment, then the Route and `/health`.
 | Model serving | OpenShift AI KServe |
 
 The remote-stack bootstrap installs the `zenml-stack` Helm chart (service
-account, RBAC, KServe permissions, MLflow, S4, and registry templates), then
+account, RBAC, KServe permissions, MLflow, object storage, and registry templates), then
 waits in this order: project/SA/RBAC, KServe Role/RoleBinding, MLflow Available,
-S4 rollout and Route health, S4 bucket bootstrap Job, integrated registry
+object storage rollout and Route health, object storage bucket bootstrap Job, integrated registry
 Route, and ZenML component registration as the active stack.
 
 MLflow is cluster-scoped. An existing configured instance is reused; otherwise,
@@ -476,11 +476,11 @@ model used by a retrieval system:
 
 1. Prepare a reproducible TechQA technical-support retrieval benchmark.
 2. Evaluate the configured embedding candidates in parallel on OpenShift.
-3. Store pipeline artifacts in S4 and experiment results in MLflow.
+3. Store pipeline artifacts in object storage and experiment results in MLflow.
 4. Select the strongest candidate according to the pipeline's retrieval-quality
    criterion.
 5. Re-encode title-plus-body chunks with the winner and persist a versioned
-   FAISS search bundle in S4.
+   FAISS search bundle in object storage.
 6. Create or update a CPU-based KServe `InferenceService`, expose its FastAPI UI
    through an OpenShift Route, and publish clickable URLs in ZenML metadata.
 
@@ -536,9 +536,9 @@ platform.
 
 Current limitations include:
 
-- ZenML, MySQL, S4, MLflow, and model serving are not configured for high
+- ZenML, MySQL, object storage, MLflow, and model serving are not configured for high
   availability or multi-zone failure tolerance.
-- S4 and MLflow are single-replica deployments; MLflow uses SQLite and local
+- Object storage and MLflow are single-replica deployments; MLflow uses SQLite and local
   persistent-volume storage.
 - Local shell scripts create and rotate secrets and short-lived tokens. There
   is no external secret manager or in-cluster credential rotation.
