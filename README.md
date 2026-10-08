@@ -576,7 +576,7 @@ Pipelines service, and which teams benefit from the combination, see
 
 ## Tags
 
-- **Title:** Depoloy self-improving retrieval for RAG and AI agents
+- **Title:** Deploy self-improving retrieval for RAG and AI agents
 - **Description:** Evaluate embedding models and deploy winner-indexed technical-support search with ZenML on Red Hat OpenShift AI.
 - **Industry:** Media and IT Services
 - **Product:** OpenShift AI
