@@ -1,7 +1,7 @@
 # Deploy self-improving retrieval for RAG and AI agents
 
 Evaluate embedding models, index technical-support documentation with the
-winner, and deploy a semantic-search UI with ZenML&reg; on Red Hat OpenShift AI&reg;.
+winner, and deploy a semantic-search UI with ZenML on Red Hat OpenShift AI.
 
 ## Table of Contents
 
@@ -53,7 +53,7 @@ the result immediately testable through a semantic-search UI. It is intended
 for teams exploring how retrieval evaluation and deployment can be automated
 on OpenShift AI.
 
-By implementing this ZenML-powered self-improving retrieval pipeline, technical support engineers gain faster, more accurate access to the right knowledge articles, even when customers describe problems using different terminology, product names, or symptoms that keyword search would miss. The automated evaluation loop removes guesswork from model selection by benchmarking embedding models against real support queries, so teams can confidently deploy the retrieval approach that actually works best for their content. This translates directly to shorter resolution times, fewer unnecessary escalations, and better reuse of hard-won operational knowledge. Because the pipeline is repeatable and observable, retrieval quality improves over time rather than degrading as documentation grows, and the same semantic search layer becomes the ready-made foundation for a future RAG assistant or AI-powered support agent.
+By implementing this ZenML&reg;-powered self-improving retrieval pipeline, technical support engineers gain faster, more accurate access to the right knowledge articles, even when customers describe problems using different terminology, product names, or symptoms that keyword search would miss. The automated evaluation loop removes guesswork from model selection by benchmarking embedding models against real support queries, so teams can confidently deploy the retrieval approach that actually works best for their content. This translates directly to shorter resolution times, fewer unnecessary escalations, and better reuse of hard-won operational knowledge. Because the pipeline is repeatable and observable, retrieval quality improves over time rather than degrading as documentation grows, and the same semantic search layer becomes the ready-made foundation for a future RAG assistant or AI-powered support agent.
 
 ### Architecture diagrams
 
@@ -105,8 +105,8 @@ components, local tooling, and required OpenShift permissions described below.
 
 **Target platform versions:**
 
-- Red Hat OpenShift AI `3.4` or later; this POC was tested with `3.4.3`.
-- Red Hat OpenShift Container Platform `4.20` or later
+- Red Hat OpenShift AI&reg; `3.4` or later; this POC was tested with `3.4.3`.
+- Red Hat OpenShift Container Platform&reg `4.20` or later
 
 **Required cluster services:**
 
